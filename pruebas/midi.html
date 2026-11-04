@@ -1,0 +1,343 @@
+<meta charset="utf-8">
+<title>Prueba MIDI</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Una sola columna: estado, dispositivos, teclado de 61 teclas, última nota y registro de mensajes. */
+:root {
+  --bg: #1f1e1d; --card: #2a2928; --bar: #262524; --tx: #f1efe8; --mut: #b4b2a9; --bd: #444441;
+  --on: #5DCAA5; --onbg: #123A2D; --warn: #ffab7a; --err: #ff8f8a; --errbg: #3a1f1d;
+  --scr: #0b0b0b; --grid: rgba(255,255,255,.09);
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box }
+body { margin: 0; background: var(--bg); color: var(--tx); font: 15px/1.45 system-ui, -apple-system, sans-serif }
+.wrap { max-width: 1100px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px; display: flex; flex-direction: column; gap: 16px }
+header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px }
+h1 { font-size: 22px; font-weight: 600; letter-spacing: .04em; margin: 0 }
+h1 small { font-weight: 400; color: var(--mut); font-size: 15px; letter-spacing: 0 }
+.sec { background: var(--card); border: 1px solid var(--bd); border-radius: 12px; padding: 16px 18px; min-width: 0 }
+.sec > h2 { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--mut); margin: 0 0 12px }
+.lead { color: var(--mut); margin: 0; max-width: 80ch }
+button { font: inherit; padding: 10px 16px; border-radius: 4px; border: 1px solid var(--bd); background: var(--card); color: var(--tx); cursor: pointer }
+button.main { border-color: var(--on); background: var(--onbg); color: var(--on); font-weight: 600 }
+button:focus-visible { outline: 2px solid var(--on); outline-offset: 2px }
+button:disabled { opacity: .5; cursor: default }
+.actions { display: flex; flex-wrap: wrap; gap: 10px }
+
+/* Estado: una fila por chequeo, con su luz. */
+.checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px }
+.chk { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--bd); border-radius: 4px; min-width: 0 }
+.led { flex: none; width: 12px; height: 12px; margin-top: 5px; border-radius: 2px; background: var(--bd) }
+.chk[data-s="ok"] .led { background: var(--on); box-shadow: 0 0 8px var(--on) }
+.chk[data-s="warn"] .led { background: var(--warn) }
+.chk[data-s="err"] .led { background: var(--err) }
+.chk b { display: block; font-weight: 600 }
+.chk span { color: var(--mut); font-size: 14px }
+.msg { padding: 10px 12px; border-radius: 4px; background: var(--errbg); color: var(--err); border: 1px solid var(--err) }
+
+/* Dispositivos */
+.devs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px }
+.devs li { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; padding: 8px 12px; border: 1px solid var(--bd); border-radius: 4px }
+.devs li.on { border-color: var(--on); background: var(--onbg) }
+.devs .st { margin-left: auto; font-family: var(--mono); font-size: 13px; color: var(--mut) }
+.devs li.on .st { color: var(--on) }
+.empty { color: var(--mut); margin: 0 }
+
+/* Teclado de 61 teclas, como el GO:KEYS 3 (C2 a C7). */
+.kbwrap { overflow-x: auto }
+.kb { position: relative; height: 130px; min-width: 720px; user-select: none; -webkit-user-select: none; touch-action: none }
+.w { position: absolute; top: 0; height: 130px; border: 1px solid var(--bd); background: #f1efe8; display: flex; align-items: flex-end; justify-content: center; font-size: 10px; color: #6b6a66; padding-bottom: 4px }
+.b { position: absolute; top: 0; height: 80px; background: #0b0b0b; z-index: 2; border: 1px solid #000 }
+.w.act { background: var(--on); color: #0b0b0b }
+.b.act { background: var(--on) }
+
+/* Pantalla de última nota, estilo osciloscopio. */
+.scr { background: var(--scr); border-radius: 4px; padding: 14px 16px; background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 24px 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; font-family: var(--mono) }
+.scr div small { display: block; color: var(--mut); font-size: 12px; letter-spacing: .06em; text-transform: uppercase }
+.scr div b { font-size: 26px; font-weight: 500; color: var(--on); font-variant-numeric: tabular-nums }
+.scr div b.hl { color: var(--warn) }
+.vel { height: 6px; background: #222; border-radius: 1px; margin-top: 6px }
+.vel i { display: block; height: 100%; width: 0; background: var(--on) }
+
+/* Registro de mensajes */
+.log { font-family: var(--mono); font-size: 13px; background: var(--scr); border-radius: 4px; padding: 10px 12px; height: 220px; overflow: auto; margin: 0; white-space: pre }
+.log .t { color: var(--mut) }
+.log .n { color: var(--on) }
+.log .o { color: var(--warn) }
+@media (prefers-reduced-motion: reduce) { .chk[data-s="ok"] .led { box-shadow: none } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Prueba MIDI <small>· camino al B-MOOG 9</small></h1>
+    <div class="actions">
+      <button class="main" id="start" type="button">Conectar MIDI y sonido</button>
+      <button id="test" type="button">Nota de prueba (A4)</button>
+    </div>
+  </header>
+  <p class="lead">Conecta el GO:KEYS por USB, pulsa "Conectar MIDI y sonido" y acepta el permiso del navegador. Cada tecla que toques debería encenderse en verde abajo y sonar con una voz simple.</p>
+
+  <section class="sec">
+    <h2>Estado</h2>
+    <div class="checks">
+      <div class="chk" id="c-api"><i class="led"></i><div><b>Web MIDI (navegador)</b><span>Revisando…</span></div></div>
+      <div class="chk" id="c-sec"><i class="led"></i><div><b>Conexión segura</b><span>Revisando…</span></div></div>
+      <div class="chk" id="c-pol"><i class="led"></i><div><b>Permiso del sitio</b><span>Revisando…</span></div></div>
+      <div class="chk" id="c-acc"><i class="led"></i><div><b>Acceso MIDI</b><span>Falta pulsar "Conectar".</span></div></div>
+      <div class="chk" id="c-aud"><i class="led"></i><div><b>Sonido</b><span>Falta pulsar "Conectar".</span></div></div>
+    </div>
+    <p class="msg" id="err" hidden></p>
+  </section>
+
+  <section class="sec">
+    <h2>Dispositivos MIDI de entrada</h2>
+    <ul class="devs" id="devs"></ul>
+    <p class="empty" id="nodevs">Ninguno todavía. Conecta el teclado por USB; aparece aquí sin recargar.</p>
+  </section>
+
+  <section class="sec">
+    <h2>Teclado (61 teclas, C2 a C7)</h2>
+    <div class="kbwrap"><div class="kb" id="kb"></div></div>
+  </section>
+
+  <section class="sec">
+    <h2>Última nota</h2>
+    <div class="scr">
+      <div><small>Nota</small><b id="o-name">--</b></div>
+      <div><small>Número MIDI</small><b id="o-num">--</b></div>
+      <div><small>Frecuencia</small><b id="o-hz">--</b></div>
+      <div><small>Velocidad</small><b id="o-vel">--</b><div class="vel"><i id="o-velbar"></i></div></div>
+      <div><small>Canal</small><b id="o-ch">--</b></div>
+      <div><small>Sustain (CC 64)</small><b id="o-sus">OFF</b></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>Mensajes recibidos</h2>
+    <pre class="log" id="log"></pre>
+  </section>
+</div>
+
+<script>
+// ---------- Notas ----------
+const LOW = 36, HIGH = 96;                 // C2 a C7: las 61 teclas del GO:KEYS 3
+const NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const noteName = n => NAMES[n % 12] + (Math.floor(n / 12) - 1);
+const noteHz = n => 440 * Math.pow(2, (n - 69) / 12);
+const $ = id => document.getElementById(id);
+
+// ---------- Estado de los chequeos ----------
+function setCheck(id, state, text) {
+  const el = $(id);
+  el.dataset.s = state;
+  el.querySelector("span").textContent = text;
+}
+function showError(text) { const e = $("err"); e.textContent = text; e.hidden = !text; }
+
+function midiAllowedBySite() {
+  const p = document.permissionsPolicy || document.featurePolicy;
+  if (!p || !p.allowsFeature) return null;   // el navegador no lo informa
+  return p.allowsFeature("midi");
+}
+
+function initialChecks() {
+  const hasApi = typeof navigator.requestMIDIAccess === "function";
+  setCheck("c-api", hasApi ? "ok" : "err", hasApi ? "Disponible." : "Este navegador no tiene Web MIDI. Usa Chrome o Edge.");
+  setCheck("c-sec", window.isSecureContext ? "ok" : "err", window.isSecureContext ? "https o localhost." : "La página no está en https ni en localhost.");
+  const pol = midiAllowedBySite();
+  if (pol === null) setCheck("c-pol", "warn", "El navegador no lo informa.");
+  else setCheck("c-pol", pol ? "ok" : "err", pol ? "La página puede pedir MIDI." : "El sitio que contiene esta página bloquea MIDI.");
+}
+
+// ---------- Sonido: una voz simple por nota ----------
+let ctx = null, out = null;
+const voices = new Map();       // nota -> {osc, amp}
+const held = new Set();         // notas soltadas mientras el sustain está apretado
+let sustain = false;
+
+function initAudio() {
+  if (ctx) return ctx.resume();
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  out = ctx.createGain();
+  out.gain.value = 0.25;
+  out.connect(ctx.destination);
+  return ctx.resume();
+}
+
+function voiceOn(n, vel) {
+  if (!ctx) return;
+  voiceOff(n, true);
+  const t = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const filt = ctx.createBiquadFilter();
+  const amp = ctx.createGain();
+  osc.type = "sawtooth";
+  osc.frequency.value = noteHz(n);
+  filt.type = "lowpass";
+  filt.frequency.value = 600 + 5000 * (vel / 127);   // más fuerte, más brillante
+  amp.gain.setValueAtTime(0, t);
+  amp.gain.linearRampToValueAtTime(0.15 + 0.6 * (vel / 127), t + 0.01);
+  amp.gain.setTargetAtTime(0.35 * (vel / 127), t + 0.01, 0.3);
+  osc.connect(filt).connect(amp).connect(out);
+  osc.start(t);
+  voices.set(n, { osc, amp });
+}
+
+function voiceOff(n, now) {
+  const v = voices.get(n);
+  if (!v) return;
+  const t = ctx.currentTime;
+  v.amp.gain.cancelScheduledValues(t);
+  v.amp.gain.setValueAtTime(v.amp.gain.value, t);
+  v.amp.gain.setTargetAtTime(0, t, now ? 0.005 : 0.12);
+  v.osc.stop(t + (now ? 0.05 : 0.8));
+  voices.delete(n);
+}
+
+// ---------- Una sola entrada de notas: MIDI, mouse y botón de prueba ----------
+function noteOn(n, vel, ch) {
+  held.delete(n);
+  voiceOn(n, vel);
+  keyEl(n)?.classList.add("act");
+  $("o-name").textContent = noteName(n);
+  $("o-num").textContent = n;
+  $("o-hz").textContent = noteHz(n).toFixed(1) + " Hz";
+  $("o-vel").textContent = vel;
+  $("o-velbar").style.width = (vel / 127 * 100) + "%";
+  $("o-ch").textContent = ch ?? "--";
+}
+function noteOff(n) {
+  keyEl(n)?.classList.remove("act");
+  if (sustain) { held.add(n); return; }
+  voiceOff(n);
+}
+function setSustain(on) {
+  sustain = on;
+  const s = $("o-sus");
+  s.textContent = on ? "ON" : "OFF";
+  s.classList.toggle("hl", on);
+  if (!on) { held.forEach(n => voiceOff(n)); held.clear(); }
+}
+
+// ---------- Teclado en pantalla ----------
+const keys = new Map();
+const keyEl = n => keys.get(n);
+function buildKeyboard() {
+  const kb = $("kb");
+  const isBlack = n => [1, 3, 6, 8, 10].includes(n % 12);
+  const whites = [];
+  for (let n = LOW; n <= HIGH; n++) if (!isBlack(n)) whites.push(n);
+  const ww = 100 / whites.length;
+  whites.forEach((n, i) => {
+    const k = document.createElement("div");
+    k.className = "w";
+    k.style.left = (i * ww) + "%";
+    k.style.width = ww + "%";
+    if (n % 12 === 0) k.textContent = noteName(n);
+    kb.appendChild(k); keys.set(n, k);
+  });
+  for (let n = LOW; n <= HIGH; n++) {
+    if (!isBlack(n)) continue;
+    const i = whites.indexOf(n - 1);
+    const k = document.createElement("div");
+    k.className = "b";
+    k.style.left = ((i + 1) * ww - ww * 0.3) + "%";
+    k.style.width = (ww * 0.6) + "%";
+    kb.appendChild(k); keys.set(n, k);
+  }
+  // Mouse: también pasa por noteOn / noteOff
+  let down = null;
+  kb.addEventListener("pointerdown", e => {
+    const n = [...keys].find(([, el]) => el === e.target)?.[0];
+    if (n == null) return;
+    initAudio(); down = n; noteOn(n, 100, null);
+  });
+  window.addEventListener("pointerup", () => { if (down != null) { noteOff(down); down = null; } });
+}
+
+// ---------- MIDI ----------
+function logLine(cls, text) {
+  const log = $("log");
+  const t = new Date().toLocaleTimeString("es", { hour12: false });
+  const line = document.createElement("span");
+  line.innerHTML = `<span class="t">${t}</span>  <span class="${cls}"></span>\n`;
+  line.lastElementChild.textContent = text;
+  log.prepend(line);
+  while (log.childNodes.length > 200) log.lastChild.remove();
+}
+
+function onMidiMessage(e) {
+  const [st, d1 = 0, d2 = 0] = e.data;
+  const type = st & 0xf0, ch = (st & 0x0f) + 1;
+  const hex = [...e.data].map(b => b.toString(16).padStart(2, "0")).join(" ");
+  if (st >= 0xf8) return;                        // reloj y active sensing: no se registran
+  if (type === 0x90 && d2 > 0) { noteOn(d1, d2, ch); logLine("n", `${hex}   Note On   ${noteName(d1)} (${d1}) vel ${d2} ch ${ch}`); }
+  else if (type === 0x80 || (type === 0x90 && d2 === 0)) { noteOff(d1); logLine("o", `${hex}   Note Off  ${noteName(d1)} (${d1}) ch ${ch}`); }
+  else if (type === 0xb0) {
+    if (d1 === 64) setSustain(d2 >= 64);
+    logLine("", `${hex}   Control   CC ${d1} = ${d2} ch ${ch}${d1 === 64 ? " (sustain)" : d1 === 1 ? " (modulación)" : ""}`);
+  }
+  else if (type === 0xe0) logLine("", `${hex}   Pitch bend ${((d2 << 7) | d1) - 8192} ch ${ch}`);
+  else if (type === 0xc0) logLine("", `${hex}   Program   ${d1 + 1} ch ${ch}`);
+  else logLine("", `${hex}   Otro mensaje`);
+}
+
+function renderDevices(access) {
+  const ul = $("devs");
+  ul.innerHTML = "";
+  const inputs = [...access.inputs.values()];
+  inputs.forEach(inp => {
+    inp.onmidimessage = onMidiMessage;          // escuchar todas las entradas
+    const li = document.createElement("li");
+    li.className = inp.state === "connected" ? "on" : "";
+    li.innerHTML = "<b></b><span></span><span class=st></span>";
+    li.children[0].textContent = inp.name || "(sin nombre)";
+    li.children[1].textContent = inp.manufacturer || "";
+    li.children[2].textContent = inp.state === "connected" ? "conectado" : "desconectado";
+    ul.appendChild(li);
+  });
+  $("nodevs").hidden = inputs.length > 0;
+}
+
+async function start() {
+  showError("");
+  try {
+    await initAudio();
+    setCheck("c-aud", ctx.state === "running" ? "ok" : "warn", ctx.state === "running" ? "Activo." : "El navegador no dejó iniciar el audio.");
+  } catch (e) {
+    setCheck("c-aud", "err", "No se pudo iniciar el audio.");
+  }
+  if (typeof navigator.requestMIDIAccess !== "function") {
+    setCheck("c-acc", "err", "Sin Web MIDI en este navegador.");
+    showError("Este navegador no tiene Web MIDI. Ábrelo en Chrome o Edge.");
+    return;
+  }
+  try {
+    const access = await navigator.requestMIDIAccess({ sysex: false });
+    setCheck("c-acc", "ok", "Concedido.");
+    renderDevices(access);
+    access.onstatechange = () => renderDevices(access);
+    $("start").textContent = "Conectado";
+    $("start").disabled = true;
+    logLine("", "Acceso MIDI concedido. Toca una tecla.");
+  } catch (e) {
+    const blocked = midiAllowedBySite() === false;
+    setCheck("c-acc", "err", blocked ? "Bloqueado por el sitio." : "Denegado.");
+    showError(blocked
+      ? "El sitio que contiene esta página no permite MIDI. Así no se puede usar el teclado desde aquí: habría que abrirla en localhost o en un hosting propio."
+      : `El navegador negó el acceso MIDI (${e.name}). Revisa el permiso en el ícono de la barra de direcciones y vuelve a intentar.`);
+    logLine("", `Error: ${e.name}: ${e.message}`);
+  }
+}
+
+$("start").addEventListener("click", start);
+$("test").addEventListener("click", async () => {
+  await initAudio();
+  noteOn(69, 100, null);
+  setTimeout(() => noteOff(69), 600);
+});
+
+buildKeyboard();
+initialChecks();
+</script>
