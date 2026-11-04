@@ -118,6 +118,7 @@ canvas{background:#0b0d0c;border-color:#2a2e2c}
 @media (prefers-reduced-motion:reduce){.tgl,.knobdot{transition:none}}
 .rlab{font-size:15px;font-weight:600;color:var(--mut);min-width:78px}
 .rlab.on{color:var(--on)}
+.mled{flex:none;width:10px;height:10px;border-radius:2px;background:var(--bd)}.mled.on{background:var(--onbg);border:1px solid var(--on)}.mled.hit{background:var(--on);box-shadow:0 0 8px var(--on)}
 [hidden]{display:none!important}
 .helpbtn{padding:8px 14px;font-size:14px}
 .modal{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px}
@@ -322,7 +323,8 @@ canvas.mviz{width:100%;height:190px;margin:0}
 <div class="top"><div class="wrap">
   <div class="toprow">
     <div class="tl"><h1>B-MOOG 7 <small style="font-size:14px;font-weight:400;color:var(--mut);letter-spacing:0">v1.0</small></h1>
-    <div class="ctl"><input type="checkbox" id="hold" checked hidden><button type="button" class="tgl on" id="holdsw" role="switch" aria-checked="true" aria-label="Hold"><span class="knobdot"></span></button><span class="rlab on" id="holdon">Hold ON</span> <small>(sostener, barra espaciadora)</small></div></div>
+    <div class="ctl"><input type="checkbox" id="hold" hidden><button type="button" class="tgl" id="holdsw" role="switch" aria-checked="false" aria-label="Hold"><span class="knobdot"></span></button><span class="rlab" id="holdon">Hold OFF</span> <small>(sostener, barra espaciadora)</small></div>
+    <div class="ctl"><button type="button" class="tgl" id="midisw" role="switch" aria-checked="false" aria-label="MIDI"><span class="knobdot"></span></button><span class="rlab" id="midion">MIDI OFF</span><i class="mled" id="mled"></i> <small id="midist">(teclado USB, Chrome)</small></div></div>
     <button type="button" class="helpbtn" id="helpbtn">Ayuda con las teclas</button>
     <label class="ctl vctl"><span class="mvl">MASTER VOLUME</span><input type="range" id="vol" min="0" max="100" step="1" value="40"><span id="vo" style="min-width:28px;font-variant-numeric:tabular-nums">40</span></label>
   </div>
@@ -465,8 +467,11 @@ function setupSel(i){const el=$("rs"+i),o=O[i],def=FEET.findIndex(f=>f[1]===o.oc
  el.addEventListener("keydown",e=>{if(e.key==="ArrowUp"||e.key==="ArrowRight"){e.preventDefault();set(idx()+1);}else if(e.key==="ArrowDown"||e.key==="ArrowLeft"){e.preventDefault();set(idx()-1);}});
  el.addEventListener("dblclick",()=>set(def));draw();}
 
-function layout(){kb.innerHTML="";const W=kb.clientWidth;const nW=notes.filter(n=>!n[0].includes("#")).length;const ww=W/nW;let wi=0;
-notes.forEach(n=>{const el=document.createElement("div");el.dataset.s=n[1];
+// Con MIDI encendido el teclado de la pantalla muestra las 61 teclas del GO:KEYS (C2 a C7, s = -12 a 48).
+let midiOn=false;
+function kbNotes(){if(!midiOn)return notes;const a=[];for(let s=-12;s<=48;s++){const nm=NM[(s%12+12)%12];a.push([nm,s,s>=0&&s<25?KEYS[s]:(nm==="C"?"C"+(Math.floor(s/12)+3):"")]);}return a;}
+function layout(){kb.innerHTML="";const ks=kbNotes();const W=kb.clientWidth;const nW=ks.filter(n=>!n[0].includes("#")).length;const ww=W/nW;let wi=0;
+ks.forEach(n=>{const el=document.createElement("div");el.dataset.s=n[1];
 if(n[0].includes("#")){el.className="b";el.style.width=(ww*0.6)+"px";el.style.left=(wi*ww-ww*0.3)+"px";}
 else{el.className="w";el.style.width=ww+"px";el.style.left=(wi*ww)+"px";wi++;}
 el.textContent=n[2].toUpperCase();kb.appendChild(el);});paintKeys();}
@@ -488,8 +493,10 @@ function mkVoice(snd,s,t,lvol,dest){const f=ctx.createBiquadFilter();f.type="low
  return {os,gs,f,g,snd};}
 function relVoice(v,t){const r=sR(v.snd);hold0(v.g.gain,t);hold0(v.f.detune,t);v.f.detune.linearRampToValueAtTime(0,t+r);v.g.gain.linearRampToValueAtTime(0,t+r);v.os.forEach(o=>{try{o.stop(t+r+0.05);}catch(e){}});}
 function killV(v){const t=ctx.currentTime;hold0(v.g.gain,t);v.g.gain.linearRampToValueAtTime(0,t+0.01);v.os.forEach(o=>{try{o.stop(t+0.03);}catch(e){}});}
-function on(s){init();if(voices[s]){killV(voices[s]);delete voices[s];}const ks=Object.keys(voices);if(ks.length>=8){killV(voices[ks[0]]);delete voices[ks[0]];}
- voices[s]=mkVoice(LINES[sel].sound,s,ctx.currentTime,LINES[sel].vol);recOn(s);paintKeys();}
+// Velocidad MIDI (1-127) a volumen; 100 suena casi igual que el teclado del computador.
+const velG=v=>v===undefined?1:Math.pow(v/127,0.6)*1.15;
+function on(s,vel){init();if(voices[s]){killV(voices[s]);delete voices[s];}const ks=Object.keys(voices);if(ks.length>=8){killV(voices[ks[0]]);delete voices[ks[0]];}
+ voices[s]=mkVoice(LINES[sel].sound,s,ctx.currentTime,LINES[sel].vol*velG(vel));recOn(s);paintKeys();}
 function off(s){const v=voices[s];if(!v)return;relVoice(v,ctx.currentTime);delete voices[s];recOff(s);paintKeys();}
 function kill(s){const v=voices[s];if(!v)return;killV(v);delete voices[s];}
 function setWave(i){Object.values(voices).forEach(v=>setW(v.os[i],O[i].wave));}
@@ -498,7 +505,7 @@ function pitch(){if(!ctx)return;const t=ctx.currentTime;Object.entries(voices).f
 function applyF(){if(!ctx)return;const t=ctx.currentTime;Object.values(voices).forEach(v=>{v.f.frequency.setTargetAtTime(cutHz(),t,0.01);v.f.Q.setTargetAtTime(+res.value,t,0.01);});}
 function schedNote(ln,n,t0,t1){if(!tracksBus){tracksBus=ctx.createGain();tracksBus.gain.value=tvol/8;tracksBus.connect(synthBus);}const v=mkVoice(ln.sound,n,t0,ln.vol,tracksBus);pb.add(v);relVoice(v,Math.max(t1,t0+0.02));v.os[0].onended=()=>pb.delete(v);}
 function paintKeys(){kb.querySelectorAll("[data-s]").forEach(el=>el.classList.toggle("cur",!!voices[+el.dataset.s]));}
-function press(s){if(hold.checked){voices[s]?off(s):on(s);}else on(s);}
+function press(s,vel){if(hold.checked){voices[s]?off(s):on(s,vel);}else on(s,vel);}
 function release(s){if(!hold.checked)off(s);}
 const DR=[{id:"kick",name:"Kick",es:"bombo",vol:8,base:1},{id:"snare",name:"Snare",es:"caja",vol:7,base:1},{id:"hat",name:"Hi-hat",es:"platillo cerrado",vol:5,base:1}];
 const DKIT=[{id:"clap",name:"Clap",es:"palmas",vol:6},{id:"cowbell",name:"Cowbell",es:"cencerro",vol:5},{id:"crash",name:"Crash",es:"platillo de choque",vol:5},{id:"ohat",name:"Open hi-hat",es:"platillo abierto",vol:5},{id:"tomlo",name:"Tom grave",es:"timbal grave",vol:7},{id:"tomhi",name:"Tom agudo",es:"timbal agudo",vol:7},{id:"rim",name:"Rimshot",es:"golpe al aro",vol:6},{id:"shaker",name:"Shaker",es:"maracas",vol:5}];
@@ -610,6 +617,31 @@ function syncHold(){const v=hold.checked;holdsw.classList.toggle("on",v);holdsw.
 hold.addEventListener("change",()=>{if(!hold.checked&&ctx)Object.keys(voices).forEach(k=>off(+k));syncHold();});
 holdsw.addEventListener("click",()=>{hold.checked=!hold.checked;hold.dispatchEvent(new Event("change"));});
 holdsw.addEventListener("keydown",e=>{if(e.code==="Space")e.stopPropagation();});
+
+// Teclado MIDI (GO:KEYS u otro). Sus notas entran por press/release como las del computador:
+// obedecen a Hold y se graban en el track elegido. Nota MIDI 48 (C3) = s 0. El pedal (CC 64) sostiene.
+const midisw=$("midisw"),midion=$("midion"),midist=$("midist"),mled=$("mled");
+let midiAcc=null,pedal=false,ledT=0;const pedHeld=new Set();
+function midiStatus(t){midist.textContent="("+t+")";}
+function syncMidi(){midisw.classList.toggle("on",midiOn);midisw.setAttribute("aria-checked",midiOn);midion.textContent=midiOn?"MIDI ON":"MIDI OFF";midion.classList.toggle("on",midiOn);mled.classList.toggle("on",midiOn);layout();}
+function midiInputs(){if(!midiAcc)return;const ins=[...midiAcc.inputs.values()];ins.forEach(i=>i.onmidimessage=midiOn?onMidi:null);
+ const con=ins.filter(i=>i.state==="connected");if(midiOn)midiStatus(con.length?con.map(i=>i.name).join(", "):"sin teclado conectado");}
+function ledHit(){mled.classList.add("hit");clearTimeout(ledT);ledT=setTimeout(()=>mled.classList.remove("hit"),90);}
+function pedalUp(){pedal=false;pedHeld.forEach(s=>release(s));pedHeld.clear();}
+function onMidi(e){const st=e.data[0],d1=e.data[1]||0,d2=e.data[2]||0,t=st&0xf0;
+ if(t===0x90&&d2>0){const s=d1-48;pedHeld.delete(s);press(s,d2);ledHit();}
+ else if(t===0x80||t===0x90){const s=d1-48;if(pedal&&!hold.checked)pedHeld.add(s);else release(s);}
+ else if(t===0xb0&&d1===64){if(d2>=64)pedal=true;else pedalUp();}}
+async function setMidi(v){
+ if(!v){midiOn=false;pedalUp();midiInputs();midiStatus("teclado USB, Chrome");syncMidi();return;}
+ if(typeof navigator.requestMIDIAccess!=="function"){midiStatus("este navegador no tiene MIDI: usa Chrome");return;}
+ const pol=document.permissionsPolicy||document.featurePolicy;
+ if(pol&&pol.allowsFeature&&!pol.allowsFeature("midi")){midiStatus("bloqueado aquí: abre brymoog.goitera.com");return;}
+ init();
+ try{midiAcc=midiAcc||await navigator.requestMIDIAccess();midiAcc.onstatechange=midiInputs;}catch(e){midiStatus("permiso denegado: revísalo junto a la dirección");return;}
+ midiOn=true;syncMidi();midiInputs();}
+midisw.addEventListener("click",()=>setMidi(!midiOn));
+midisw.addEventListener("keydown",e=>{if(e.code==="Space")e.stopPropagation();});
 const ptr={};
 kb.addEventListener("pointerdown",e=>{const el=e.target.closest("[data-s]");if(!el)return;e.preventDefault();const s=+el.dataset.s;ptr[e.pointerId]=s;press(s);});
 ["pointerup","pointercancel","pointerleave"].forEach(ev=>kb.addEventListener(ev,e=>{const s=ptr[e.pointerId];if(s!==undefined){release(s);delete ptr[e.pointerId];}}));
@@ -688,7 +720,7 @@ function setDmaster(v){dmaster=v;const m=$("dmv");m.value=v;$("dmvo").textConten
 $("dmv").addEventListener("input",()=>setDmaster(+$("dmv").value));
 function all(){layout();drawF();drawE();drawFE();}
 window.addEventListener("resize",all);all();requestAnimationFrame(scopeLoop);
-window.allOff=()=>{if(ctx)Object.keys(voices).forEach(k=>off(+k));if(playing)stop();};
+window.allOff=()=>{pedal=false;pedHeld.clear();if(ctx)Object.keys(voices).forEach(k=>off(+k));if(playing)stop();};
 const SND_IDS=["cut","res","atk","dec","sus","rel","famt","fatk","fdec","fsus"];
 const MAXL=8,MAXBYTES=1000000;
 function selectLine(k){if(k===sel&&O===LINES[k].sound.osc){paintLines();return;}Object.keys(voices).forEach(s=>off(+s));sel=k;O=LINES[k].sound.osc;const snd=LINES[k].sound;
@@ -728,7 +760,8 @@ function drawRolls(){const L=loopSteps();LINES.forEach((ln,k)=>{const c=$("roll"
  const x=c.getContext("2d");x.clearRect(0,0,W,H);const M=METERS[meter];x.strokeStyle="rgba(255,255,255,.09)";x.lineWidth=1;x.beginPath();for(let i=1;i<L;i++){if(i%M.grp)continue;const X=Math.round(i/L*W)+.5;x.moveTo(X,0);x.lineTo(X,H);}x.stroke();
  x.strokeStyle="rgba(255,255,255,.25)";x.beginPath();for(let b=1;b<bars;b++){const X=Math.round(b*M.n/L*W)+.5;x.moveTo(X,0);x.lineTo(X,H);}x.stroke();
  const recNow=rec&&rec.line===k&&rec.on;x.fillStyle=recNow?"#ff6b66":(ln.mute?"#555":css("--trb"));
- ln.notes.forEach(n=>{if(n.st>=L)return;const X=n.st/L*W,w=Math.max(3,Math.min(n.du,L-n.st)/L*W),y=H-6-(n.n/24)*(H-14);x.fillRect(X,y-4,w,8);});
+ let lo=0,hi=24;ln.notes.forEach(n=>{if(n.n<lo)lo=n.n;if(n.n>hi)hi=n.n;});
+ ln.notes.forEach(n=>{if(n.st>=L)return;const X=n.st/L*W,w=Math.max(3,Math.min(n.du,L-n.st)/L*W),y=H-6-((n.n-lo)/(hi-lo))*(H-14);x.fillRect(X,y-4,w,8);});
  if(playing&&visAbs>=0){const X=(visAbs%L)/L*W;x.fillStyle=css("--trf");x.fillRect(X,0,3,H);}});}
 let mesaY=0;
 function showTab(t){const m=t==="Mesa";const ps=$("paneSonido");if(!m)mesaY=window.scrollY;$("paneMesa").hidden=!m;ps.hidden=m;
@@ -765,7 +798,7 @@ function applySession(d){if(!d||d.app!=="B-MOOG 7"||!Array.isArray(d.lines)||!d.
  setDmaster(d.drums&&d.drums.master!==undefined?num(d.drums.master,0,10,8):8);setTvol(num(d.tracksVol,0,10,8));
  setTempo(num(d.tempo,60,180,100)|0);songIn.value=String(d.song||"Canción sin título").slice(0,40);
  LINES=d.lines.slice(0,MAXL).map((l,k)=>({name:String(l.name||("Track "+(k+1))).slice(0,24),vol:num(l.vol,0,10,8),mute:!!l.mute,
-  notes:(Array.isArray(l.notes)?l.notes:[]).slice(0,4000).filter(n=>n&&isFinite(n.n)&&isFinite(n.st)&&isFinite(n.du)).map(n=>({n:Math.min(24,Math.max(0,n.n|0)),st:Math.max(0,+n.st),du:Math.max(0.05,+n.du)})),
+  notes:(Array.isArray(l.notes)?l.notes:[]).slice(0,4000).filter(n=>n&&isFinite(n.n)&&isFinite(n.st)&&isFinite(n.du)).map(n=>({n:Math.min(79,Math.max(-48,n.n|0)),st:Math.max(0,+n.st),du:Math.max(0.05,+n.du)})),
   sound:readSound(l.sound,k===0?SOUNDS.bass:SOUNDS.lead)}));
  paintBars();renderGrid();drawMeter();paintPresets();sel=-1;buildLines();selectLine(0);}
 function newSong(){stop();songIn.value="Canción sin título";bars=1;paintBars();LINES=[newLine("bass"),newLine("lead")];sel=-1;buildLines();selectLine(0);resetKit();loadPreset(0);}
