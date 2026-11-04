@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>B-MOOG 9 · Pruebas</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 24px max(16px, env(safe-area-inset-left, 0px)); background: #1f1e1d; color: #f1efe8; font: 15px/1.5 system-ui, sans-serif; }
+  h1 { font-size: 20px; margin: 0 0 6px; }
+  #sum { margin: 0 0 18px; font-weight: 700; }
+  .ok { color: #5dcaa5; }
+  .fail { color: #ff8f8a; }
+  li { margin: 2px 0; }
+  li small { color: #b4b2a9; }
+</style>
+</head>
+<body>
+<h1>B-MOOG 9 · Pruebas</h1>
+<p id="sum">Corriendo…</p>
+<ol id="out"></ol>
+<script type="module">
+import * as song from './state/song.js';
+import * as actions from './state/actions.js';
+import * as file from './io/song-file.js';
+import { makeNote } from './seq/recorder.js';
+import { velocityGain } from './input/notes.js';
+import { noteHz } from './audio/voice.js';
+
+const results = [];
+function test(name, fn) {
+  try { fn(); results.push([name, null]); } catch (e) { results.push([name, e.message]); }
+}
+function eq(a, b, msg = '') {
+  const A = JSON.stringify(a), B = JSON.stringify(b);
+  if (A !== B) throw new Error(`${msg} esperaba ${B}, llegó ${A}`);
+}
+function throws(fn, text) {
+  try { fn(); } catch (e) {
+    if (text && !e.message.includes(text)) throw new Error(`mensaje distinto: "${e.message}"`);
+    return;
+  }
+  throw new Error('no lanzó error');
+}
+
+// Canción nueva
+test('una canción nueva tiene Ritmo, Bajo y Melodía', () => {
+  const s = song.createSong();
+  eq(s.tracks.map((t) => t.name), ['Ritmo', 'Bajo', 'Melodía']);
+  eq(s.app, 'B-MOOG 9');
+});
+test('el ritmo arranca en Pop/Disco, 4/4, Loop 1 y 120 BPM', () => {
+  const r = song.rhythmOf(song.createSong());
+  eq([song.PRESETS[r.preset].name, song.METERS[r.meter].label, r.loop, r.tempo], ['Pop/Disco', '4/4', 1, 120]);
+});
+test('Pop/Disco pone el bombo en 1, 5, 9 y 13', () => {
+  const kick = song.rhythmOf(song.createSong()).rows[0];
+  eq(kick.steps.map((on, i) => (on ? i : -1)).filter((i) => i >= 0), [0, 4, 8, 12]);
+});
+test('cada track tiene su propia copia del sonido', () => {
+  const a = song.createSong(), b = song.createSong();
+  a.tracks[1].sound.osc[0].vol = 1;
+  eq(b.tracks[1].sound.osc[0].vol, 8);
+});
+
+// Tiempos
+test('largo del loop: 4/4 con Loop 4 son 64 pasos', () => {
+  const s = song.createSong();
+  song.rhythmOf(s).loop = 4;
+  eq(song.loopSteps(s), 64);
+});
+test('largo del loop: 12/8 con Loop 2 son 24 pasos', () => {
+  const s = song.createSong();
+  Object.assign(song.rhythmOf(s), { meter: 2, loop: 2 });
+  eq(song.loopSteps(s), 24);
+});
+test('un paso a 120 BPM en 4/4 dura 0,125 s', () => {
+  eq(song.stepDuration(song.createSong()), 0.125);
+});
+
+// Acciones
+test('cambiar el compás deja el ritmo en Custom', () => {
+  actions.newSong();
+  actions.setMeter(1);
+  const r = song.rhythmOf(actions.getSong());
+  eq([r.meter, r.preset], [1, song.CUSTOM_PRESET]);
+});
+test('cargar Vals pone 3/4 y 120 BPM', () => {
+  actions.newSong();
+  actions.loadPreset(5);
+  const r = song.rhythmOf(actions.getSong());
+  eq([song.METERS[r.meter].label, r.tempo], ['3/4', 120]);
+});
+test('el tempo queda entre 60 y 180', () => {
+  actions.setTempo(400);
+  eq(song.rhythmOf(actions.getSong()).tempo, 180);
+});
+test('el loop solo acepta 1, 2 o 4', () => {
+  actions.newSong();
+  actions.setLoop(3);
+  eq(song.rhythmOf(actions.getSong()).loop, 1);
+});
+test('las acciones avisan a quien escucha', () => {
+  let heard = '';
+  const off = actions.onSongChange((a) => { heard = a; });
+  actions.setTrackMute('bass', true);
+  off();
+  eq(heard, 'setTrackMute');
+});
+test('hay notas solo después de grabar', () => {
+  actions.newSong();
+  eq(song.hasNotes(actions.getSong()), false);
+  actions.setTrackNotes('lead', [{ n: 0, st: 0, du: 1 }]);
+  eq(song.hasNotes(actions.getSong()), true);
+});
+
+// Grabación
+test('una nota grabada se redondea a milésimas', () => {
+  eq(makeNote(4, 1.23456, 3.5, 16), { n: 4, st: 1.235, du: 2.265 });
+});
+test('una nota no pasa del final del loop', () => {
+  eq(makeNote(0, 14, 20, 16).du, 2);
+});
+test('una nota muy corta dura al menos 0,1 pasos', () => {
+  eq(makeNote(0, 3, 3.01, 16).du, 0.1);
+});
+
+// Sonido y entradas
+test('C3 suena a 130,81 Hz y A4 a 440 Hz', () => {
+  eq([noteHz(0).toFixed(2), noteHz(21).toFixed(1)], ['130.81', '440.0']);
+});
+test('velocidad 100 suena casi como el teclado del computador', () => {
+  const g = velocityGain(100);
+  if (g < 0.95 || g > 1.05) throw new Error(`ganancia ${g}`);
+  eq(velocityGain(undefined), 1);
+});
+
+// Archivo
+test('guardar y abrir devuelve la misma canción', () => {
+  actions.newSong();
+  actions.setSongName('The New Sound');
+  actions.setTrackNotes('bass', [{ n: -5, st: 2, du: 1.5 }]);
+  const back = file.parse(file.serialize(actions.getSong()));
+  eq(back, actions.getSong());
+});
+test('el nombre del archivo lleva el sinte', () => {
+  eq(file.fileName({ name: 'Mi: canción?' }), 'Mi canción.b-moog-9.json');
+});
+test('un archivo del B-MOOG 7 dice con qué sinte se creó', () => {
+  throws(() => file.parse(JSON.stringify({ app: 'B-MOOG 7', v: 2 })),
+    'Este archivo fue creado con el B-MOOG 7 y por ahora solo se puede usar con ese sinte.');
+});
+test('un archivo cualquiera no se abre', () => {
+  throws(() => file.parse('{"hola": 1}'), 'no es una canción del B-MOOG 9');
+  throws(() => file.parse('no es json'), 'no se pudo leer');
+});
+test('un formato más nuevo pide recargar', () => {
+  throws(() => file.parse(JSON.stringify({ app: 'B-MOOG 9', format: 99 })), 'versión más nueva');
+});
+test('valores fuera de rango se corrigen al abrir', () => {
+  const s = song.createSong();
+  song.rhythmOf(s).tempo = 999;
+  s.tracks[1].notes = [{ n: 500, st: -3, du: 0 }, { n: 'x', st: 0, du: 1 }];
+  const back = file.parse(JSON.stringify(s));
+  eq(song.rhythmOf(back).tempo, 180);
+  eq(back.tracks[1].notes, [{ n: 79, st: 0, du: 0.05 }]);
+});
+
+// Resultado
+const out = document.getElementById('out');
+let failed = 0;
+for (const [name, err] of results) {
+  const li = document.createElement('li');
+  li.className = err ? 'fail' : 'ok';
+  li.textContent = (err ? '✗ ' : '✓ ') + name;
+  if (err) {
+    failed++;
+    const s = document.createElement('small');
+    s.textContent = ' · ' + err;
+    li.appendChild(s);
+  }
+  out.appendChild(li);
+}
+const sum = document.getElementById('sum');
+sum.textContent = failed ? `${failed} de ${results.length} pruebas fallaron` : `${results.length} pruebas pasaron`;
+sum.className = failed ? 'fail' : 'ok';
+window.testResult = { total: results.length, failed };
+</script>
+</body>
+</html>

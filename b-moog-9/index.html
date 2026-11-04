@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>B-MOOG 9</title>
+<link rel="stylesheet" href="style.css">
+<script type="module" src="main.js"></script>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="toprow">
+      <div class="tl">
+        <h1>B-MOOG 9 <small>v1.1</small></h1>
+        <div class="ctl">
+          <button type="button" class="tgl" id="holdsw" role="switch" aria-checked="false" aria-label="Hold"><span class="knobdot"></span></button>
+          <span class="rlab" id="holdlab">Hold OFF</span>
+          <small>(sostener, barra espaciadora)</small>
+        </div>
+        <div class="ctl">
+          <button type="button" class="tgl" id="midisw" role="switch" aria-checked="false" aria-label="MIDI"><span class="knobdot"></span></button>
+          <span class="rlab" id="midilab">MIDI OFF</span>
+          <i class="mled" id="mled"></i>
+          <small id="midist">(teclado USB, Chrome)</small>
+        </div>
+      </div>
+      <button type="button" class="helpbtn" id="helpbtn">Ayuda con las teclas</button>
+      <label class="ctl vctl">
+        <span class="mvl">MASTER VOLUME</span>
+        <input type="range" id="master" min="0" max="100" step="1" value="40">
+        <span class="kv" id="mastero">40</span>
+      </label>
+    </div>
+    <div class="kb" id="kb"></div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="pane" id="paneSong">
+    <section class="sec">
+      <h2>CANCIÓN <small>(transporte y archivo)</small></h2>
+      <div class="transport">
+        <button type="button" class="playbtn" data-play>&#9654; Play</button>
+        <label class="songname">Nombre <input type="text" id="songname" maxlength="80" autocomplete="off"></label>
+        <div class="ctl">
+          <button type="button" class="tgl on" id="clicksw" role="switch" aria-checked="true" aria-label="Click"><span class="knobdot"></span></button>
+          <span class="rlab on" id="clicklab">Click ON</span>
+          <small>(metrónomo)</small>
+        </div>
+        <div class="files">
+          <button type="button" id="newsong">Nueva canción</button>
+          <button type="button" id="save">Guardar</button>
+          <button type="button" id="open">Abrir</button>
+        </div>
+        <input type="file" id="openfile" accept=".json,application/json" hidden>
+      </div>
+    </section>
+
+    <section class="sec">
+      <div class="sechead">
+        <h2>TRACKS <small>(el Ritmo define tempo, compás y loop de toda la canción)</small></h2>
+        <label class="ctl">
+          <span class="mvl">TRACKS VOL</span>
+          <span class="mrange"><input type="range" id="tracksvol" min="0" max="10" step="0.1" value="8"><span class="kv" id="tracksvolo">8.0</span></span>
+        </label>
+      </div>
+      <div class="tracks" id="tracks"></div>
+      <p class="note">Toca una fila de Bajo o Melodía para seleccionarla: el teclado suena con su sonido. Rec graba una vuelta completa del loop después de un compás de cuenta previa (GET READY) y reemplaza lo que el track tenía. TRACKS VOL sube o baja todo lo grabado; lo que tocas en vivo no cambia.</p>
+    </section>
+  </div>
+
+  <div class="pane" id="paneRhythm" hidden>
+    <div class="panehead">
+      <button type="button" id="back">&#8592; Volver a la canción</button>
+      <div class="panename">Ritmo</div>
+      <span class="sp"></span>
+      <button type="button" class="playbtn" data-play>&#9654; Play</button>
+    </div>
+    <section class="sec">
+      <h2>DRUM BOX <small>(caja de ritmos)</small></h2>
+      <div class="dtop">
+        <div id="tempoKnob"></div>
+        <div id="meterSel"></div>
+        <div id="loopSel"></div>
+        <label class="dmast">
+          <span class="mvl">DRUMS VOL</span>
+          <span class="mrange"><input type="range" id="drumsvol" min="0" max="10" step="0.1" value="8"><span class="kv" id="drumsvolo">8.0</span></span>
+        </label>
+      </div>
+      <div class="presets" id="presets"></div>
+      <div class="dgrid" id="dgrid"></div>
+      <p class="note">Toca un paso para encenderlo o apagarlo. El compás (Meter) y el Loop valen para toda la canción: si cambias el compás cuando Bajo o Melodía tienen notas, primero te pregunta.</p>
+    </section>
+  </div>
+
+</main>
+
+<div class="modal" id="help" hidden>
+  <div class="mbox" role="dialog" aria-modal="true" aria-labelledby="helpt">
+    <h2 id="helpt">Teclas del computador</h2>
+    <table>
+      <tr><td>Primera octava, blancas</td><td><kbd>Q</kbd><kbd>W</kbd><kbd>E</kbd><kbd>R</kbd><kbd>T</kbd><kbd>Y</kbd><kbd>U</kbd></td></tr>
+      <tr><td>Primera octava, negras</td><td><kbd>2</kbd><kbd>3</kbd><kbd>5</kbd><kbd>6</kbd><kbd>7</kbd></td></tr>
+      <tr><td>Segunda octava, blancas</td><td><kbd>V</kbd><kbd>B</kbd><kbd>N</kbd><kbd>M</kbd><kbd>,</kbd><kbd>.</kbd><kbd>-</kbd></td></tr>
+      <tr><td>Segunda octava, negras</td><td><kbd>G</kbd><kbd>H</kbd><kbd>K</kbd><kbd>L</kbd><kbd>Ñ</kbd></td></tr>
+      <tr><td>Último Do</td><td><kbd>Ç</kbd></td></tr>
+      <tr><td>Hold (sostener)</td><td><kbd>Barra espaciadora</kbd></td></tr>
+    </table>
+    <p>Con Hold encendido, la tecla que tocas queda sonando hasta que la vuelves a tocar: sirve para afinar un sonido. Se pueden tocar acordes de hasta 8 notas.</p>
+    <p><b>Teclado MIDI:</b> conecta el teclado por USB, abre esta página en Chrome y enciende MIDI. Con MIDI encendido, el teclado de la pantalla muestra las 61 teclas, tocar más fuerte suena más fuerte y el pedal sostiene. Si el teclado no responde, <a href="../pruebas/midi.html" target="_blank" rel="noopener">prueba la conexión</a>.</p>
+    <div class="mbtns"><button type="button" id="helpx">Cerrar</button></div>
+  </div>
+</div>
+
+<div class="modal" id="dialog" hidden>
+  <div class="mbox" role="dialog" aria-modal="true" aria-labelledby="dlgt">
+    <h2 id="dlgt"></h2>
+    <p class="lead" id="dlgp"></p>
+    <div class="mbtns" id="dlgb"></div>
+  </div>
+</div>
+
+<div class="flash" id="flash" role="status" aria-live="polite" hidden></div>
+
+</body>
+</html>
