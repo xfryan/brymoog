@@ -1,4 +1,8 @@
+<!doctype html>
+<html lang="es">
+<head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Prueba MIDI</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
@@ -67,6 +71,8 @@ button:disabled { opacity: .5; cursor: default }
 .log .o { color: var(--warn) }
 @media (prefers-reduced-motion: reduce) { .chk[data-s="ok"] .led { box-shadow: none } }
 </style>
+</head>
+<body>
 
 <div class="wrap">
   <header>
@@ -349,3 +355,5 @@ $("test").addEventListener("click", async () => {
 buildKeyboard();
 initialChecks();
 </script>
+</body>
+</html>
