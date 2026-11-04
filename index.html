@@ -51,7 +51,7 @@ html:root:not(#_){--bg:#1f1e1d;--side:#262524;--tx:#f1efe8;--mut:#b4b2a9;--bd:#4
 </div></div>
 <div class="stage" id="stage"></div>
 <script>
-const FILES={b1:"b-moog-1.html",b3:"b-moog-3.html",b5:"b-moog-5.html",b7:"b-moog-7.html",b9:"b-moog-9/index.html"},NAMES={b1:"B-MOOG 1",b3:"B-MOOG 3",b5:"B-MOOG 5",b7:"B-MOOG 7",b9:"B-MOOG 9"};
+const FILES={b1:"b-moog-1.html",b3:"b-moog-3.html",b5:"b-moog-5.html",b7:"b-moog-7.html",b9:"b-moog-9/index.html?v=1.1.2"},NAMES={b1:"B-MOOG 1",b3:"B-MOOG 3",b5:"B-MOOG 5",b7:"B-MOOG 7",b9:"B-MOOG 9"};
 const frames={};let active=null;
 async function load(id){const f=document.createElement("iframe");f.title=NAMES[id];f.setAttribute("allow","autoplay; midi");frames[id]=f;document.getElementById("stage").appendChild(f);
  // El B-MOOG 9 es una carpeta con módulos: se carga con src, porque con srcdoc los módulos no cargan.

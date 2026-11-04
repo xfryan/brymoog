@@ -4,8 +4,37 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>B-MOOG 9</title>
-<link rel="stylesheet" href="style.css">
-<script type="module" src="main.js"></script>
+<script>
+  // Cada archivo se pide con la versión de la publicación (?v=...), para que el navegador no mezcle
+  // archivos nuevos con archivos viejos de su caché. La versión la pone el hub en la dirección
+  // (b-moog-9/index.html?v=1.1.2); abierto sin versión, se piden siempre frescos.
+  // Al agregar un módulo nuevo, sumarlo a MODULES.
+  (() => {
+    const VERSION = new URLSearchParams(location.search).get('v') || String(Date.now());
+    const MODULES = [
+      'main.js',
+      'audio/drums.js', 'audio/engine.js', 'audio/voice.js',
+      'input/keyboard.js', 'input/midi.js', 'input/notes.js', 'input/screen-keys.js',
+      'io/song-file.js',
+      'seq/clock.js', 'seq/player.js', 'seq/recorder.js',
+      'state/actions.js', 'state/song.js', 'state/sounds.js', 'state/view.js',
+      'ui/controls.js', 'ui/dialogs.js', 'ui/drum-box.js', 'ui/topbar.js', 'ui/tracks.js',
+    ];
+    const at = (path) => new URL(path, location.href).href;
+    const map = { imports: {} };
+    for (const m of MODULES) map.imports[at(m)] = at(`${m}?v=${VERSION}`);
+    const importMap = document.createElement('script');
+    importMap.type = 'importmap';
+    importMap.textContent = JSON.stringify(map);
+    document.head.appendChild(importMap);
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = `style.css?v=${VERSION}`;
+    document.head.appendChild(css);
+  })();
+</script>
+<!-- Se importa en vez de usar src, para que main.js también pase por el mapa de versiones. -->
+<script type="module">import './main.js';</script>
 </head>
 <body>
 
