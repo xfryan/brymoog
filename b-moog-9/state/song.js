@@ -17,8 +17,17 @@ export const METERS = [
 /** Largo posible del loop, en compases. */
 export const LOOPS = [1, 2, 4];
 
-/** Los pasos de la batería se guardan siempre en 16 posiciones; cada compás usa las primeras n. */
-export const DRUM_STEPS = 16;
+/**
+ * Los pasos de la batería se guardan en 4 compases de 16 posiciones cada uno (64 en total).
+ * Cada compás usa sus primeras n posiciones según el Meter, y suenan los compases del Loop.
+ * Al bajar el Loop, los compases de más quedan guardados aunque no suenen.
+ */
+export const BAR_STEPS = 16;
+export const MAX_BARS = 4;
+export const DRUM_STEPS = BAR_STEPS * MAX_BARS;
+
+/** Posición en los pasos guardados de un paso dentro de un compás. */
+export const drumIndex = (bar, step) => bar * BAR_STEPS + step;
 
 export const DRUMS = [
   { id: 'kick', name: 'Kick', es: 'bombo', vol: 8 },
@@ -56,7 +65,7 @@ export const TEMPO_MAX = 180;
  * @typedef {object} DrumRow
  * @property {string} id      kick, snare o hat.
  * @property {number} vol     0 a 10.
- * @property {boolean[]} steps 16 pasos.
+ * @property {boolean[]} steps 64 pasos: 4 compases de 16 (ver drumIndex).
  */
 
 /**
@@ -125,7 +134,10 @@ export function createSong() {
   };
 }
 
-/** Pone en el track de Ritmo los pasos, el compás y el tempo de un ritmo predefinido. */
+/**
+ * Pone en el track de Ritmo los pasos, el compás y el tempo de un ritmo predefinido.
+ * El patrón llena todos los compases del Loop; los demás quedan vacíos.
+ */
 export function applyPreset(rhythm, index) {
   const p = PRESETS[index];
   rhythm.preset = index;
@@ -133,8 +145,24 @@ export function applyPreset(rhythm, index) {
   rhythm.tempo = p.tempo;
   for (const row of rhythm.rows) {
     const hits = p[row.id] || [];
-    row.steps = Array.from({ length: DRUM_STEPS }, (_, i) => hits.includes(i));
+    row.steps = Array.from({ length: DRUM_STEPS }, (_, i) =>
+      Math.floor(i / BAR_STEPS) < rhythm.loop && hits.includes(i % BAR_STEPS));
   }
+}
+
+/** Copia el compás 1 en los demás compases del Loop. */
+export function copyFirstBar(rhythm) {
+  for (const row of rhythm.rows) {
+    const first = row.steps.slice(0, BAR_STEPS);
+    for (let bar = 1; bar < rhythm.loop; bar++) {
+      for (let i = 0; i < BAR_STEPS; i++) row.steps[drumIndex(bar, i)] = first[i];
+    }
+  }
+}
+
+/** ¿El compás no tiene ningún golpe en sus primeras n posiciones? */
+export function barIsEmpty(rhythm, bar, n = BAR_STEPS) {
+  return rhythm.rows.every((row) => row.steps.slice(drumIndex(bar, 0), drumIndex(bar, n)).every((on) => !on));
 }
 
 /** @returns {RhythmTrack} */
@@ -156,9 +184,22 @@ export const stepDuration = (song) => 60 / rhythmOf(song).tempo / meterOf(song).
 /** ¿Hay algún track de notas con notas? Sirve para avisar antes de cambiar el compás. */
 export const hasNotes = (song) => noteTracks(song).some((t) => t.notes.length > 0);
 
-/** ¿La batería suena en algún paso del compás? */
+/** Para un paso absoluto s (0 o más): compás del loop, paso dentro del compás y posición guardada. */
+export function drumPosition(song, s) {
+  const n = meterOf(song).n;
+  const pos = s % loopSteps(song);
+  const bar = Math.floor(pos / n);
+  const step = pos % n;
+  return { bar, step, index: drumIndex(bar, step) };
+}
+
+/** ¿La batería suena en algún paso del loop? */
 export function drumsAudible(song) {
   const r = rhythmOf(song);
   const n = meterOf(song).n;
-  return !r.mute && r.vol > 0 && r.rows.some((row) => row.vol > 0 && row.steps.slice(0, n).some(Boolean));
+  if (r.mute || r.vol <= 0) return false;
+  for (let bar = 0; bar < r.loop; bar++) {
+    if (r.rows.some((row) => row.vol > 0 && row.steps.slice(drumIndex(bar, 0), drumIndex(bar, n)).some(Boolean))) return true;
+  }
+  return false;
 }

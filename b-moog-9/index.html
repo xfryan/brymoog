@@ -74,10 +74,9 @@
 
   <div class="pane" id="paneRhythm" hidden>
     <div class="panehead">
+      <button type="button" class="playbtn" data-play>&#9654; Play</button>
       <button type="button" id="back">&#8592; Volver a la canción</button>
       <div class="panename">Ritmo</div>
-      <span class="sp"></span>
-      <button type="button" class="playbtn" data-play>&#9654; Play</button>
     </div>
     <section class="sec">
       <h2>DRUM BOX <small>(caja de ritmos)</small></h2>
@@ -91,8 +90,12 @@
         </label>
       </div>
       <div class="presets" id="presets"></div>
+      <div class="dcopy" id="dcopy" hidden>
+        <span id="dcopytext"></span>
+        <button type="button" id="copybar">Copiar compás 1 a los demás</button>
+      </div>
       <div class="dgrid" id="dgrid"></div>
-      <p class="note">Toca un paso para encenderlo o apagarlo. El compás (Meter) y el Loop valen para toda la canción: si cambias el compás cuando Bajo o Melodía tienen notas, primero te pregunta.</p>
+      <p class="note">Toca un paso para encenderlo o apagarlo. Cada instrumento tiene un renglón por compás del Loop. El compás (Meter) y el Loop valen para toda la canción: si cambias el compás cuando Bajo o Melodía tienen notas, primero te pregunta. Al bajar el Loop, los compases de más se ocultan pero no se borran.</p>
     </section>
   </div>
 

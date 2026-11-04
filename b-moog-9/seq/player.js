@@ -6,7 +6,7 @@ import { startVoice } from '../audio/voice.js';
 import { getSong } from '../state/actions.js';
 import { getView } from '../state/view.js';
 import {
-  rhythmOf, noteTracks, meterOf, loopSteps, stepDuration, drumsAudible,
+  rhythmOf, noteTracks, meterOf, loopSteps, stepDuration, drumsAudible, drumPosition,
 } from '../state/song.js';
 import { createClock, atAudioTime } from './clock.js';
 import * as recorder from './recorder.js';
@@ -18,10 +18,10 @@ const clock = createClock({ stepDuration: () => stepDuration(getSong()), onStep 
 
 /**
  * Posición que se ve en pantalla.
- * @type {{playing: boolean, step: number, drumStep: number}}
- * step: paso absoluto (negativo en la cuenta previa); drumStep: paso dentro del compás.
+ * @type {{playing: boolean, step: number, bar: number, drumStep: number}}
+ * step: paso absoluto (negativo en la cuenta previa); bar: compás del loop; drumStep: paso dentro del compás.
  */
-export const position = { playing: false, step: -1, drumStep: -1 };
+export const position = { playing: false, step: -1, bar: -1, drumStep: -1 };
 
 /** Escuchar cambios de Play/Stop y del paso que suena. */
 export function onPlayerChange(fn) {
@@ -46,7 +46,7 @@ export function stop() {
   clock.stop();
   scheduled.forEach((v) => v.kill());
   scheduled.clear();
-  Object.assign(position, { playing: false, step: -1, drumStep: -1 });
+  Object.assign(position, { playing: false, step: -1, bar: -1, drumStep: -1 });
   emit();
 }
 
@@ -57,10 +57,10 @@ function onStep(s, t, sd) {
   const L = loopSteps(song);
 
   if (s >= 0) {
-    const drumStep = s % meter.n;
+    const drum = drumPosition(song, s);
     if (!rhythm.mute) {
       rhythm.rows.forEach((row) => {
-        if (row.steps[drumStep]) drumHit(row.id, t, row.vol / 10);
+        if (row.steps[drum.index]) drumHit(row.id, t, row.vol / 10);
       });
     }
     const pos = s % L;
@@ -75,7 +75,8 @@ function onStep(s, t, sd) {
     }
     atAudioTime(t, () => {
       position.step = s;
-      position.drumStep = drumStep;
+      position.bar = drum.bar;
+      position.drumStep = drum.step;
       emit();
     });
   } else {

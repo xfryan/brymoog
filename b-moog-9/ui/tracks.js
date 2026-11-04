@@ -7,7 +7,7 @@ import {
   setTrackVolume, setTrackMute, clearTrack,
 } from '../state/actions.js';
 import { getView, setView, onViewChange } from '../state/view.js';
-import { PRESETS, rhythmOf, meterOf, loopSteps } from '../state/song.js';
+import { PRESETS, rhythmOf, meterOf, loopSteps, drumIndex } from '../state/song.js';
 import { play, stop, isPlaying, position, onPlayerChange } from '../seq/player.js';
 import * as recorder from '../seq/recorder.js';
 import * as songFile from '../io/song-file.js';
@@ -273,7 +273,7 @@ function drawRhythm(ctx, song, rhythm) {
   rhythm.rows.forEach((row, r) => {
     const y = H - ((r + 0.5) / lanes) * H;
     for (let i = 0; i < L; i++) {
-      if (!row.steps[i % n]) continue;
+      if (!row.steps[drumIndex(Math.floor(i / n), i % n)]) continue;
       const x = ((i + 0.5) / L) * W;
       ctx.beginPath();
       ctx.arc(x, y, Math.min(7, (W / L) * 0.3), 0, Math.PI * 2);

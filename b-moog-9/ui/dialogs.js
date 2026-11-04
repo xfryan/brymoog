@@ -41,6 +41,14 @@ export function confirmDialog({ title, text, ok, cancel = 'Cancelar', danger = f
   ]);
 }
 
+/**
+ * Pregunta con varias respuestas. Devuelve el value del botón elegido; Escape o clic afuera devuelve false.
+ * @param {{title: string, text: string, buttons: {label: string, value: any, cls?: string}[]}} opts
+ */
+export function choose({ title, text, buttons }) {
+  return showDialog(title, text, buttons);
+}
+
 /** Aviso con un solo botón. */
 export function notice(title, text) {
   return showDialog(title, text, [{ label: 'Entendido', value: true }]);

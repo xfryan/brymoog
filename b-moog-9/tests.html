@@ -114,6 +114,46 @@ test('hay notas solo después de grabar', () => {
   eq(song.hasNotes(actions.getSong()), true);
 });
 
+// Compases de la batería
+const hitsOf = (row) => row.steps.map((on, i) => (on ? i : -1)).filter((i) => i >= 0);
+test('un ritmo predefinido llena todos los compases del Loop', () => {
+  actions.newSong();
+  actions.setLoop(2);
+  actions.loadPreset(1);
+  eq(hitsOf(song.rhythmOf(actions.getSong()).rows[0]), [0, 4, 8, 12, 16, 20, 24, 28]);
+});
+test('subir el Loop deja los compases nuevos vacíos', () => {
+  actions.newSong();
+  actions.setLoop(4);
+  const r = song.rhythmOf(actions.getSong());
+  eq([song.barIsEmpty(r, 0), song.barIsEmpty(r, 1), song.barIsEmpty(r, 3)], [false, true, true]);
+});
+test('copiar el compás 1 llena los demás compases del Loop', () => {
+  actions.newSong();
+  actions.setLoop(2);
+  actions.copyFirstBar();
+  eq(hitsOf(song.rhythmOf(actions.getSong()).rows[1]), [4, 12, 20, 28]);
+});
+test('bajar el Loop oculta los compases sin borrarlos', () => {
+  actions.newSong();
+  actions.setLoop(4);
+  actions.copyFirstBar();
+  actions.setLoop(1);
+  const r = song.rhythmOf(actions.getSong());
+  eq(song.barIsEmpty(r, 3), false);
+});
+test('un paso de la canción cae en su compás: 4/4, Loop 2, paso 20', () => {
+  const s = song.createSong();
+  song.rhythmOf(s).loop = 2;
+  eq(song.drumPosition(s, 20), { bar: 1, step: 4, index: 20 });
+  eq(song.drumPosition(s, 33), { bar: 0, step: 1, index: 1 });
+});
+test('en 3/4 cada compás usa 12 pasos de su bloque de 16', () => {
+  const s = song.createSong();
+  Object.assign(song.rhythmOf(s), { meter: 1, loop: 2 });
+  eq(song.drumPosition(s, 13), { bar: 1, step: 1, index: 17 });
+});
+
 // Grabación
 test('una nota grabada se redondea a milésimas', () => {
   eq(makeNote(4, 1.23456, 3.5, 16), { n: 4, st: 1.235, du: 2.265 });
@@ -156,6 +196,13 @@ test('un archivo cualquiera no se abre', () => {
 });
 test('un formato más nuevo pide recargar', () => {
   throws(() => file.parse(JSON.stringify({ app: 'B-MOOG 9', format: 99 })), 'versión más nueva');
+});
+test('una canción guardada con un solo compás de batería se abre', () => {
+  const s = song.createSong();
+  s.tracks[0].rows.forEach((r) => { r.steps = r.steps.slice(0, 16); });
+  const back = file.parse(JSON.stringify(s));
+  eq(back.tracks[0].rows[0].steps.length, 64);
+  eq(hitsOf(back.tracks[0].rows[0]), [0, 4, 8, 12]);
 });
 test('valores fuera de rango se corrigen al abrir', () => {
   const s = song.createSong();

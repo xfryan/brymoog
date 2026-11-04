@@ -287,8 +287,6 @@ main { display: block; padding-block: 20px 40px; }
   background: var(--card);
 }
 .panehead .panename { font-size: 18px; }
-.panehead .sp { flex: 1; }
-.panehead .playbtn { min-width: 120px; padding: 10px 14px; font-size: 16px; }
 
 .dtop { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 34px; margin-bottom: 18px; }
 .dtop .dmast { display: flex; align-items: center; gap: 12px; margin-left: auto; }
@@ -326,20 +324,36 @@ main { display: block; padding-block: 20px 40px; }
 .presets button.on small { color: var(--on); }
 @media (max-width: 1000px) { .presets { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
-.dgrid { display: flex; flex-direction: column; gap: 12px; }
-.drow { display: grid; grid-template-columns: 120px 220px minmax(0, 1fr); gap: 18px; align-items: center; }
+/* Grilla del Ritmo: un bloque por instrumento, un renglón por compás, scroll vertical */
+
+.dcopy { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 12px; font-size: 13px; color: var(--mut); }
+.dcopy button { padding: 8px 14px; font-size: 14px; }
+
+.dgrid { max-height: 62vh; overflow-y: auto; border-top: 1px solid var(--bd); }
+.dhead, .dgroup { display: grid; grid-template-columns: 220px minmax(0, 1fr); column-gap: 14px; }
+.dhead { position: sticky; top: 0; z-index: 2; padding: 8px 0; background: var(--card); }
+.dgroup { padding: 12px 0; border-bottom: 1px solid var(--bd); background: var(--bar); }
+.dgroup:nth-child(odd) { background: var(--card); }
+.dinfo { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 0 4px; }
 .dname { font-size: 16px; font-weight: 600; }
 .dname small { display: block; font-size: 13px; font-weight: 400; }
+.dinfo .mrange { grid-template-columns: minmax(0, 1fr) 36px; }
+.dbars { display: flex; flex-direction: column; gap: 6px; }
+.dbar { display: grid; grid-template-columns: 86px minmax(0, 1fr); column-gap: 14px; align-items: center; }
+.dhead .dbar { grid-column: 2; }
+.blab { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: var(--mut); }
+.blab.now { color: var(--hl); }
 .steps, .snum { display: grid; gap: 6px; }
 .snum { font-size: 12px; color: var(--mut); text-align: center; font-variant-numeric: tabular-nums; }
-.st { height: 46px; padding: 0; border-radius: 6px; }
+.st { height: 30px; padding: 0; border-radius: 5px; }
 .st.g2 { background: #323130; }
 .st.on { background: var(--on); border-color: #3fb58c; }
 .st.now { outline: 3px solid var(--hl); outline-offset: 1px; }
 @media (max-width: 900px) {
-  .drow { grid-template-columns: minmax(0, 1fr) 160px; }
-  .drow .steps, .drow .snum { grid-column: 1 / -1; }
-  .drow.head { display: none; }
+  .dhead, .dgroup { grid-template-columns: minmax(0, 1fr); }
+  .dhead .dbar { grid-column: 1; }
+  .dinfo { flex-direction: row; align-items: center; justify-content: space-between; padding-right: 4px; }
+  .dinfo .mrange { width: 160px; }
 }
 
 /* Ventanas modales y avisos */

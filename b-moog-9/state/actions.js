@@ -3,7 +3,7 @@
 // En la 1.3 este mismo punto guarda cada cambio en el historial de deshacer.
 
 import {
-  createSong, rhythmOf, trackById, applyPreset, CUSTOM_PRESET,
+  createSong, rhythmOf, trackById, applyPreset, copyFirstBar as copyBar, CUSTOM_PRESET,
   METERS, LOOPS, TEMPO_MIN, TEMPO_MAX,
 } from './song.js';
 
@@ -70,6 +70,11 @@ export function loadPreset(index) {
   commit('loadPreset', (s) => applyPreset(rhythmOf(s), index));
 }
 
+export function copyFirstBar() {
+  commit('copyFirstBar', (s) => copyBar(rhythmOf(s)));
+}
+
+/** @param {number} step  Posición guardada (ver drumIndex en song.js). */
 export function toggleStep(rowIndex, step) {
   commit('toggleStep', (s) => {
     const r = rhythmOf(s);
