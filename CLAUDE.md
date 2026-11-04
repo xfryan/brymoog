@@ -13,7 +13,9 @@ Al empezar un hilo nuevo:
 4. `git commit` y `git push` a `main`, con un mensaje que diga qué cambió.
 5. Republicar el artifact desde el clon y copiar los archivos cambiados a la carpeta del Mac.
 
-Copias que se actualizan después de cada cambio, pero no se editan:
+Este CLAUDE.md vive solo en el repositorio: es la única versión que se mantiene. Las copias que quedaron en el proyecto Synths de claude.ai y en `~/Claude/Projects/Synths/` son un respaldo del 3 de noviembre de 2026 y no se actualizan.
+
+Copias de los sintes que se actualizan después de cada cambio, pero no se editan:
 - Carpeta del Mac: `~/Claude/Projects/Synths/brymoog/` (para que Bryan tenga los archivos a mano).
 - Artifact de claude.ai (es lo que se usa para tocar y compartir, ver "Publicación").
 
