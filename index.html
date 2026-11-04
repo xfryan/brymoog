@@ -40,6 +40,7 @@ html:root:not(#_){--bg:#1f1e1d;--side:#262524;--tx:#f1efe8;--mut:#b4b2a9;--bd:#4
   <button type="button" data-id="b3">B-MOOG 3<small>v1.0 · 3 osciladores</small></button>
   <button type="button" data-id="b5">B-MOOG 5<small>v1.0 · polifónico y ritmos</small></button>
   <button type="button" data-id="b7">B-MOOG 7<small>v1.0 · tracks y canciones</small></button>
+  <button type="button" data-id="b9">B-MOOG 9<small>beta · teclado MIDI</small></button>
   <button type="button" class="about" id="aboutbtn">Acerca de</button>
 </nav>
 <div class="modal" id="about" hidden><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="abt">
@@ -50,9 +51,9 @@ html:root:not(#_){--bg:#1f1e1d;--side:#262524;--tx:#f1efe8;--mut:#b4b2a9;--bd:#4
 </div></div>
 <div class="stage" id="stage"></div>
 <script>
-const FILES={b1:"b-moog-1.html",b3:"b-moog-3.html",b5:"b-moog-5.html",b7:"b-moog-7.html"},NAMES={b1:"B-MOOG 1",b3:"B-MOOG 3",b5:"B-MOOG 5",b7:"B-MOOG 7"};
+const FILES={b1:"b-moog-1.html",b3:"b-moog-3.html",b5:"b-moog-5.html",b7:"b-moog-7.html",b9:"pruebas/midi.html"},NAMES={b1:"B-MOOG 1",b3:"B-MOOG 3",b5:"B-MOOG 5",b7:"B-MOOG 7",b9:"B-MOOG 9"};
 const frames={};let active=null;
-async function load(id){const f=document.createElement("iframe");f.title=NAMES[id];f.setAttribute("allow","autoplay");frames[id]=f;document.getElementById("stage").appendChild(f);
+async function load(id){const f=document.createElement("iframe");f.title=NAMES[id];f.setAttribute("allow","autoplay; midi");frames[id]=f;document.getElementById("stage").appendChild(f);
  try{const r=await fetch(FILES[id]);f.srcdoc=await r.text();}catch(e){f.srcdoc='<p style="font-family:system-ui;padding:20px">No se pudo cargar '+NAMES[id]+'. Recarga la página.</p>';}
  f.addEventListener("load",()=>{if(active===id)try{f.contentWindow.focus();}catch(e){}});}
 function show(id){
@@ -70,7 +71,7 @@ document.getElementById("aboutbtn").addEventListener("click",()=>abOpen(true));
 document.getElementById("aboutx").addEventListener("click",()=>abOpen(false));
 ab.addEventListener("click",e=>{if(e.target===ab)abOpen(false);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!ab.hidden)abOpen(false);});
-show(["#b3","#b5","#b7"].includes(location.hash)?location.hash.slice(1):"b1");
+show(["#b3","#b5","#b7","#b9"].includes(location.hash)?location.hash.slice(1):"b1");
 </script>
 </body>
 </html>

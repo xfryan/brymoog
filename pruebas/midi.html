@@ -70,13 +70,13 @@ button:disabled { opacity: .5; cursor: default }
 
 <div class="wrap">
   <header>
-    <h1>Prueba MIDI <small>· camino al B-MOOG 9</small></h1>
+    <h1>B-MOOG 9 <small>beta · prueba de teclado MIDI</small></h1>
     <div class="actions">
       <button class="main" id="start" type="button">Conectar MIDI y sonido</button>
       <button id="test" type="button">Nota de prueba (A4)</button>
     </div>
   </header>
-  <p class="lead">Conecta el GO:KEYS por USB, pulsa "Conectar MIDI y sonido" y acepta el permiso del navegador. Cada tecla que toques debería encenderse en verde abajo y sonar con una voz simple.</p>
+  <p class="lead">Conecta un teclado MIDI por USB (como el GO:KEYS), pulsa "Conectar MIDI y sonido" y acepta el permiso del navegador. Funciona en Chrome o Edge. Cada tecla que toques debería encenderse en verde abajo y sonar con una voz simple.</p>
 
   <section class="sec">
     <h2>Estado</h2>
@@ -144,7 +144,7 @@ function midiAllowedBySite() {
 function initialChecks() {
   const hasApi = typeof navigator.requestMIDIAccess === "function";
   setCheck("c-api", hasApi ? "ok" : "err", hasApi ? "Disponible." : "Este navegador no tiene Web MIDI. Usa Chrome o Edge.");
-  setCheck("c-sec", window.isSecureContext ? "ok" : "err", window.isSecureContext ? "https o localhost." : "La página no está en https ni en localhost.");
+  setCheck("c-sec", window.isSecureContext ? "ok" : "err", window.isSecureContext ? "https o localhost." : "La página no está en https ni en localhost. Ábrela con https://");
   const pol = midiAllowedBySite();
   if (pol === null) setCheck("c-pol", "warn", "El navegador no lo informa.");
   else setCheck("c-pol", pol ? "ok" : "err", pol ? "La página puede pedir MIDI." : "El sitio que contiene esta página bloquea MIDI.");
@@ -325,11 +325,19 @@ async function start() {
     const blocked = midiAllowedBySite() === false;
     setCheck("c-acc", "err", blocked ? "Bloqueado por el sitio." : "Denegado.");
     showError(blocked
-      ? "El sitio que contiene esta página no permite MIDI. Así no se puede usar el teclado desde aquí: habría que abrirla en localhost o en un hosting propio."
+      ? "El sitio que contiene esta página no permite MIDI (claude.ai lo bloquea). Para tocar con el teclado, ábrela en https://brymoog.goitera.com"
       : `El navegador negó el acceso MIDI (${e.name}). Revisa el permiso en el ícono de la barra de direcciones y vuelve a intentar.`);
     logLine("", `Error: ${e.name}: ${e.message}`);
   }
 }
+
+// El hub la llama al cambiar de pestaña: apaga todo lo que suena.
+window.allOff = () => {
+  held.clear();
+  sustain = false;
+  [...voices.keys()].forEach(n => voiceOff(n, true));
+  keys.forEach(el => el.classList.remove("act"));
+};
 
 $("start").addEventListener("click", start);
 $("test").addEventListener("click", async () => {
