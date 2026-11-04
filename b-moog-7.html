@@ -467,9 +467,9 @@ function setupSel(i){const el=$("rs"+i),o=O[i],def=FEET.findIndex(f=>f[1]===o.oc
  el.addEventListener("keydown",e=>{if(e.key==="ArrowUp"||e.key==="ArrowRight"){e.preventDefault();set(idx()+1);}else if(e.key==="ArrowDown"||e.key==="ArrowLeft"){e.preventDefault();set(idx()-1);}});
  el.addEventListener("dblclick",()=>set(def));draw();}
 
-// El teclado de la pantalla muestra las 61 teclas del GO:KEYS (C2 a C7, s = -12 a 48); las del computador van en el medio.
+// Con MIDI encendido el teclado de la pantalla muestra las 61 teclas del GO:KEYS (C2 a C7, s = -12 a 48).
 let midiOn=false;
-function kbNotes(){const a=[];for(let s=-12;s<=48;s++){const nm=NM[(s%12+12)%12];a.push([nm,s,s>=0&&s<25?KEYS[s]:(nm==="C"?"C"+(Math.floor(s/12)+3):"")]);}return a;}
+function kbNotes(){if(!midiOn)return notes;const a=[];for(let s=-12;s<=48;s++){const nm=NM[(s%12+12)%12];a.push([nm,s,s>=0&&s<25?KEYS[s]:(nm==="C"?"C"+(Math.floor(s/12)+3):"")]);}return a;}
 function layout(){kb.innerHTML="";const ks=kbNotes();const W=kb.clientWidth;const nW=ks.filter(n=>!n[0].includes("#")).length;const ww=W/nW;let wi=0;
 ks.forEach(n=>{const el=document.createElement("div");el.dataset.s=n[1];
 if(n[0].includes("#")){el.className="b";el.style.width=(ww*0.6)+"px";el.style.left=(wi*ww-ww*0.3)+"px";}
