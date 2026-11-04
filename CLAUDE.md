@@ -83,4 +83,4 @@ Barra espaciadora: Hold.
 
 ## Ideas abiertas (ninguna aprobada)
 
-B-MOOG 9 (ritmos como track, grabación a audio, posible versión paga); GO:KEYS como controlador MIDI (por evaluar); exportar e importar MIDI (`.mid` dentro de `.zip` en claude.ai); track de tipo Acordes; Decay por instrumento en la batería; publicación en GitHub Pages.
+B-MOOG 9 (ritmos como track, grabación a audio, posible versión paga); GO:KEYS como controlador MIDI (por evaluar); exportar e importar MIDI (`.mid` dentro de `.zip` en claude.ai); track de tipo Acordes; Decay por instrumento en la batería; hosting propio (Bryan lo está evaluando).
