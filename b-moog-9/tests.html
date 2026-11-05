@@ -154,6 +154,102 @@ test('en 3/4 cada compás usa 12 pasos de su bloque de 16', () => {
   eq(song.drumPosition(s, 13), { bar: 1, step: 1, index: 17 });
 });
 
+// Tracks (1.2)
+test('se suman tracks hasta 8 contando el Ritmo', () => {
+  actions.newSong();
+  const ids = [];
+  for (let i = 0; i < 6; i++) ids.push(actions.addTrack(i % 2 ? 'lead' : 'bass'));
+  eq(actions.getSong().tracks.length, 8);
+  eq(actions.addTrack('bass'), null);
+  eq(ids.slice(0, 3), ['bass2', 'lead2', 'bass3']);
+});
+test('un track nuevo se llama Bajo 2 y trae su sonido de fábrica', () => {
+  actions.newSong();
+  const id = actions.addTrack('bass');
+  const t = song.trackById(actions.getSong(), id);
+  eq([t.name, song.isFactorySound(t)], ['Bajo 2', true]);
+});
+test('Bajo y Melodía se renombran pero no se borran', () => {
+  actions.newSong();
+  actions.renameTrack('bass', '  Bajo sintético  ');
+  actions.removeTrack('bass');
+  actions.removeTrack('rhythm');
+  const s = actions.getSong();
+  eq([s.tracks.length, s.tracks[1].name], [3, 'Bajo sintético']);
+});
+test('un nombre vacío deja el nombre anterior', () => {
+  actions.newSong();
+  actions.renameTrack('lead', '   ');
+  eq(song.trackById(actions.getSong(), 'lead').name, 'Melodía');
+});
+test('un track sumado se borra', () => {
+  actions.newSong();
+  const id = actions.addTrack('lead');
+  actions.removeTrack(id);
+  eq(actions.getSong().tracks.map((t) => t.id), ['rhythm', 'bass', 'lead']);
+});
+
+// Sonido (1.2)
+test('cambiar el sonido marca el track como sonido propio', () => {
+  actions.newSong();
+  actions.setSoundValue('bass', 'cut', 900);
+  const t = song.trackById(actions.getSong(), 'bass');
+  eq([t.sound.cut, song.isFactorySound(t)], [900, false]);
+});
+test('los valores del sonido quedan dentro de su rango', () => {
+  actions.newSong();
+  actions.setSoundValue('bass', 'res', 99);
+  actions.setOscillator('bass', 1, 'cents', -5000);
+  actions.setOscillator('bass', 0, 'wave', 'ruido');
+  const s = song.trackById(actions.getSong(), 'bass').sound;
+  eq([s.res, s.osc[1].cents, s.osc[0].wave], [25, -700, 'sawtooth']);
+});
+test('volver al sonido de fábrica', () => {
+  actions.newSong();
+  actions.setOscillator('lead', 2, 'on', true);
+  actions.resetSound('lead');
+  eq(song.isFactorySound(song.trackById(actions.getSong(), 'lead')), true);
+});
+test('copiar un sonido deja copias independientes', () => {
+  actions.newSong();
+  actions.setSoundValue('bass', 'atk', 700);
+  actions.copySoundFrom('lead', 'bass');
+  actions.setSoundValue('bass', 'atk', 100);
+  const lead = song.trackById(actions.getSong(), 'lead');
+  eq([lead.type, lead.sound.atk], ['lead', 700]);
+});
+
+// Percusión adicional (1.2)
+test('se suman instrumentos hasta 12 filas, con repetidos numerados', () => {
+  actions.newSong();
+  actions.addDrum('cowbell');
+  actions.addDrum('cowbell');
+  for (let i = 0; i < 10; i++) actions.addDrum('clap');
+  const rows = song.rhythmOf(actions.getSong()).rows;
+  eq([rows.length, rows[3].name, rows[4].name, rows[5].name], [12, 'Cowbell', 'Cowbell 2', 'Clap']);
+});
+test('Kick, Snare y Hi-hat no se quitan; un adicional sí', () => {
+  actions.newSong();
+  actions.addDrum('crash');
+  actions.removeDrum(0);
+  actions.removeDrum(3);
+  eq(song.rhythmOf(actions.getSong()).rows.map((r) => r.id), ['kick', 'snare', 'hat']);
+});
+test('Adaptar lo existente mantiene los adicionales y sus golpes', () => {
+  actions.newSong();
+  actions.addDrum('clap');
+  actions.toggleStep(3, 4);
+  actions.loadPreset(0);
+  const r = song.rhythmOf(actions.getSong());
+  eq([r.rows.length, hitsOf(r.rows[3]), song.PRESETS[r.preset].name], [4, [4], 'Rock']);
+});
+test('Comenzar desde cero quita los adicionales', () => {
+  actions.newSong();
+  actions.addDrum('clap');
+  actions.loadPreset(0, true);
+  eq(song.rhythmOf(actions.getSong()).rows.length, 3);
+});
+
 // Grabación
 test('una nota grabada se redondea a milésimas', () => {
   eq(makeNote(4, 1.23456, 3.5, 16), { n: 4, st: 1.235, du: 2.265 });
@@ -203,6 +299,33 @@ test('una canción guardada con un solo compás de batería se abre', () => {
   const back = file.parse(JSON.stringify(s));
   eq(back.tracks[0].rows[0].steps.length, 64);
   eq(hitsOf(back.tracks[0].rows[0]), [0, 4, 8, 12]);
+});
+test('guardar y abrir mantiene tracks sumados, nombres, sonidos y percusión', () => {
+  actions.newSong();
+  const id = actions.addTrack('lead');
+  actions.renameTrack(id, 'Arpegio');
+  actions.setSoundValue(id, 'cut', 222);
+  actions.setTrackNotes(id, [{ n: 7, st: 1, du: 2 }]);
+  actions.addDrum('shaker');
+  actions.toggleStep(3, 2);
+  const back = file.parse(file.serialize(actions.getSong()));
+  eq(back, actions.getSong());
+});
+test('un archivo de la 1.1 se abre con la batería base y los tres tracks', () => {
+  const old = song.createSong();
+  old.tracks[0].rows.forEach((r) => { delete r.name; });
+  old.tracks[1].notes = [{ n: 0, st: 0, du: 1 }];
+  const back = file.parse(JSON.stringify(old));
+  eq([back.tracks.length, back.tracks[0].rows.map((r) => r.name), back.tracks[1].notes.length],
+    [3, ['Kick', 'Snare', 'Hi-hat'], 1]);
+});
+test('un archivo con tracks o instrumentos de más se recorta', () => {
+  const s = song.createSong();
+  for (let i = 2; i < 12; i++) s.tracks.push(song.createNoteTrack('bass', `bass${i}`, `Bajo ${i}`));
+  for (let i = 0; i < 15; i++) s.tracks[0].rows.push(song.createDrumRow('rim', 'Rimshot'));
+  s.tracks.push({ type: 'lead', id: 'hack', name: 'x' });
+  const back = file.parse(JSON.stringify(s));
+  eq([back.tracks.length, back.tracks[0].rows.length], [8, 12]);
 });
 test('valores fuera de rango se corrigen al abrir', () => {
   const s = song.createSong();

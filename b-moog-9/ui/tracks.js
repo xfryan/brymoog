@@ -4,10 +4,12 @@ import { bindSwitch, bindSlider } from './controls.js';
 import { confirmDialog, notice, flash } from './dialogs.js';
 import {
   getSong, onSongChange, newSong, replaceSong, setSongName, setTracksVolume,
-  setTrackVolume, setTrackMute, clearTrack,
+  setTrackVolume, setTrackMute, clearTrack, addTrack, removeTrack, renameTrack,
 } from '../state/actions.js';
 import { getView, setView, onViewChange } from '../state/view.js';
-import { PRESETS, rhythmOf, meterOf, loopSteps, drumIndex } from '../state/song.js';
+import {
+  PRESETS, MAX_TRACKS, rhythmOf, meterOf, loopSteps, drumIndex, isFixedTrack, isFactorySound,
+} from '../state/song.js';
 import { play, stop, isPlaying, position, onPlayerChange } from '../seq/player.js';
 import * as recorder from '../seq/recorder.js';
 import * as songFile from '../io/song-file.js';
@@ -22,7 +24,7 @@ export function setupSongPane() {
   const tracksVol = bindSlider($('tracksvol'), $('tracksvolo'), (v) => v.toFixed(1), setTracksVolume);
 
   onSongChange((action) => {
-    if (action === 'newSong' || action === 'replaceSong') buildTracks();
+    if (['newSong', 'replaceSong', 'addTrack', 'removeTrack'].includes(action)) buildTracks();
     updateTracks();
     tracksVol.set(getSong().mix.tracks);
     if (document.activeElement !== $('songname')) $('songname').value = getSong().name;
@@ -30,6 +32,14 @@ export function setupSongPane() {
   onViewChange((patch) => { if ('selectedTrackId' in patch) updateTracks(); });
   recorder.onRecorderChange(updateTracks);
   onPlayerChange(() => { dirty = true; });
+
+  $('addl').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-add]');
+    if (!b) return;
+    if (recorder.isActive()) { flash('No se puede sumar un track mientras se graba'); return; }
+    const id = addTrack(b.dataset.add);
+    if (id) setView({ selectedTrackId: id });
+  });
 
   $('songname').value = getSong().name;
   $('songname').addEventListener('change', (e) => setSongName(e.target.value));
@@ -111,7 +121,9 @@ function rowHtml(track, index) {
         <div class="lname">${track.name}<small data-sum></small></div>
         <div></div>
         <button type="button" data-act="edit" class="on">Editar</button>
+        <div></div>
         <button type="button" data-act="mute" class="muteb" aria-pressed="false">Mute</button>
+        <div></div>
         <div></div>
         ${vol}
         <canvas class="roll" aria-label="Pasos del ritmo"></canvas>
@@ -120,11 +132,13 @@ function rowHtml(track, index) {
   return `
     <div class="lrow pick" data-id="${track.id}">
       <div class="lnum">${index + 1}</div>
-      <div class="lname">${track.name}<small>sonido de fábrica</small></div>
+      <div class="lname"><input type="text" data-act="name" maxlength="24" autocomplete="off" aria-label="Nombre del track ${index + 1}"><small data-snd></small></div>
       <div class="lamps"><span class="lamp ready">GET READY</span><span class="lamp go">GO!</span></div>
       <button type="button" data-act="rec" class="recb">&#9679; Rec</button>
+      <button type="button" data-act="sound" class="on">Sonido</button>
       <button type="button" data-act="mute" class="muteb" aria-pressed="false">Mute</button>
       <button type="button" data-act="clear">Clear</button>
+      ${isFixedTrack(track) ? '<div></div>' : '<button type="button" data-act="del" class="delb">Borrar</button>'}
       ${vol}
       <canvas class="roll" aria-label="Notas de ${track.name}"></canvas>
     </div>`;
@@ -141,15 +155,28 @@ function buildTracks() {
     const input = row.querySelector('[data-act=vol]');
     sliders.set(id, bindSlider(input, row.querySelector('.mrange .kv'), (v) => v.toFixed(1), (v) => setTrackVolume(id, v)));
     row.addEventListener('click', (e) => onRowClick(e, id));
+    const name = row.querySelector('[data-act=name]');
+    if (name) {
+      name.addEventListener('change', () => renameTrack(id, name.value));
+      name.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === 'Escape') {
+          if (e.key === 'Escape') name.value = getSong().tracks.find((t) => t.id === id).name;
+          name.blur();
+        }
+      });
+    }
   });
+  const count = getSong().tracks.length;
+  $('tcount').textContent = `${count} de ${MAX_TRACKS} tracks`;
+  $('addl').querySelectorAll('button').forEach((b) => { b.disabled = count >= MAX_TRACKS; });
   updateTracks();
 }
 
 async function onRowClick(e, id) {
   const act = e.target.closest('[data-act]');
   const track = getSong().tracks.find((t) => t.id === id);
-  if (!act || act.dataset.act === 'vol') {
-    if (!act && track.type !== 'rhythm') setView({ selectedTrackId: id });
+  if (!act || act.dataset.act === 'vol' || act.dataset.act === 'name') {
+    if (act?.dataset.act !== 'vol' && track.type !== 'rhythm') setView({ selectedTrackId: id });
     return;
   }
   switch (act.dataset.act) {
@@ -163,6 +190,24 @@ async function onRowClick(e, id) {
       setView({ selectedTrackId: id });
       recorder.arm(id);
       break;
+    case 'sound':
+      setView({ selectedTrackId: id, pane: 'sound' });
+      break;
+    case 'del': {
+      if (recorder.isActive()) { flash('No se puede borrar un track mientras se graba'); return; }
+      const ok = await confirmDialog({
+        title: `Borrar el track ${track.name}`,
+        text: track.notes.length
+          ? 'Se borran el track, sus notas y su sonido. Esto todavía no se puede deshacer.'
+          : 'Se borra el track y su sonido. Esto todavía no se puede deshacer.',
+        ok: 'Borrar el track',
+        danger: true,
+      });
+      if (!ok) return;
+      if (getView().selectedTrackId === id) setView({ selectedTrackId: 'bass' });
+      removeTrack(id);
+      break;
+    }
     case 'clear': {
       if (!track.notes.length) return;
       const ok = await confirmDialog({
@@ -199,6 +244,9 @@ function updateTracks() {
       row.querySelector('.lamp.ready').classList.toggle('lit', !!(mine && rec.phase === 'ready'));
       row.querySelector('.lamp.go').classList.toggle('lit', !!(mine && rec.phase === 'go'));
       row.querySelector('[data-act=clear]').disabled = track.notes.length === 0;
+      row.querySelector('[data-snd]').textContent = isFactorySound(track) ? 'sonido de fábrica' : 'sonido propio';
+      const name = row.querySelector('[data-act=name]');
+      if (document.activeElement !== name) name.value = track.name;
     }
   }
   dirty = true;

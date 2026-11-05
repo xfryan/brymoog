@@ -1,4 +1,5 @@
-// Teclado del computador: dos octavas desde C3, y la barra espaciadora para Hold.
+// Teclado del computador: dos octavas desde C3, y la barra espaciadora para Hold
+// (solo en la pantalla de Sonido, que es donde está el switch).
 
 import { noteOn, noteOff, releaseAll } from './notes.js';
 import { getView, setView } from '../state/view.js';
@@ -30,7 +31,7 @@ export function attachKeyboard() {
     if (typing(e) || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.code === 'Space') {
       e.preventDefault();
-      if (!e.repeat) toggleHold();
+      if (!e.repeat && getView().pane === 'sound') toggleHold();
       return;
     }
     if (e.repeat) return;

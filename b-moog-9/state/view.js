@@ -3,13 +3,13 @@
 const view = {
   /** Track de notas que suena al tocar en vivo. */
   selectedTrackId: 'bass',
-  /** Hold (sostener): empieza apagado, está pensado para afinar un sonido. */
+  /** Hold (sostener): solo en la pantalla de Sonido, para afinar un sonido. Se apaga al salir. */
   hold: false,
   /** Teclado MIDI encendido. */
   midiOn: false,
   /** Click (metrónomo) en la cuenta previa y al grabar sin batería. */
   click: true,
-  /** Pantalla visible: 'song' (la canción) o 'rhythm' (el drum box). */
+  /** Pantalla visible: 'song' (la canción), 'rhythm' (el drum box) o 'sound' (el sonido del track elegido). */
   pane: 'song',
   /** MASTER VOLUME, 0 a 100. */
   master: 40,

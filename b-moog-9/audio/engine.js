@@ -4,6 +4,8 @@
 //          ← tracksBus (lo grabado, TRACKS VOL) → pasa por live
 //          ← drumBus (el ritmo, DRUMS VOL)
 //
+// El analyser escucha live (el sinte, sin la batería) para el Scope de la pantalla de Sonido.
+//
 // El contexto se crea con el primer gesto de la persona (un navegador no deja sonar antes).
 
 export const audio = {
@@ -12,6 +14,7 @@ export const audio = {
   live: null,
   tracksBus: null,
   drumBus: null,
+  /** @type {AnalyserNode|null} */ analyser: null,
   /** Un segundo de ruido blanco, para la caja y el platillo. */ noise: null,
   /** Onda de pulso para los osciladores en Pulse. */ pulse: null,
 };
@@ -33,6 +36,10 @@ export function ensureAudio() {
   audio.live = ctx.createGain();
   audio.live.gain.value = 0.6;
   audio.live.connect(audio.master);
+
+  audio.analyser = ctx.createAnalyser();
+  audio.analyser.fftSize = 2048;
+  audio.live.connect(audio.analyser);
 
   audio.tracksBus = ctx.createGain();
   audio.tracksBus.connect(audio.live);

@@ -2,8 +2,8 @@
 // En la 1.1 guardar es una descarga; en la 1.4 pasa a actualizar el mismo archivo.
 
 import {
-  APP, FORMAT, METERS, LOOPS, PRESETS, CUSTOM_PRESET, DRUMS, DRUM_STEPS,
-  TEMPO_MIN, TEMPO_MAX, createSong,
+  APP, FORMAT, METERS, LOOPS, PRESETS, CUSTOM_PRESET, DRUMS, EXTRA_DRUMS, DRUM_STEPS, MAX_DRUM_ROWS,
+  MAX_TRACKS, TEMPO_MIN, TEMPO_MAX, TYPE_NAMES, createSong, createNoteTrack, drumRowName,
 } from '../state/song.js';
 import { FACTORY_SOUNDS, copySound } from '../state/sounds.js';
 
@@ -64,16 +64,36 @@ function sanitize(data) {
     r.loop = LOOPS.includes(inR.loop) ? inR.loop : r.loop;
     r.preset = int(inR.preset, CUSTOM_PRESET, PRESETS.length - 1, CUSTOM_PRESET);
     const rows = Array.isArray(inR.rows) ? inR.rows : [];
+    const stepsOf = (row) => {
+      const steps = Array.isArray(row.steps) ? row.steps : [];
+      return Array.from({ length: DRUM_STEPS }, (_, i) => steps[i] === true);
+    };
     r.rows = DRUMS.map((d) => {
       const row = rows.find((x) => x && x.id === d.id) || {};
-      const steps = Array.isArray(row.steps) ? row.steps : [];
-      return { id: d.id, vol: num(row.vol, 0, 10, d.vol), steps: Array.from({ length: DRUM_STEPS }, (_, i) => steps[i] === true) };
+      return { id: d.id, name: d.name, vol: num(row.vol, 0, 10, d.vol), steps: stepsOf(row) };
     });
+    // Instrumentos adicionales (desde la 1.2), en el orden del archivo.
+    for (const row of rows) {
+      if (r.rows.length >= MAX_DRUM_ROWS) break;
+      const kit = row && EXTRA_DRUMS.find((d) => d.id === row.id);
+      if (!kit) continue;
+      const name = typeof row.name === 'string' && row.name.trim() ? row.name.trim().slice(0, 24) : drumRowName(r, kit.id);
+      r.rows.push({ id: kit.id, name, vol: num(row.vol, 0, 10, kit.vol), steps: stepsOf(row) });
+    }
   }
 
+  // Tracks de notas: Bajo y Melodía siempre están; los que se sumaron (desde la 1.2) van después.
+  const extras = tracks.filter((t) => t && TYPE_NAMES[t.type] && typeof t.id === 'string'
+    && new RegExp(`^${t.type}\\d+$`).test(t.id));
+  for (const inT of extras) {
+    if (song.tracks.length >= MAX_TRACKS) break;
+    if (song.tracks.some((t) => t.id === inT.id)) continue;
+    song.tracks.push(createNoteTrack(inT.type, inT.id, TYPE_NAMES[inT.type]));
+  }
   for (const track of song.tracks.slice(1)) {
-    const inT = tracks.find((t) => t && t.id === track.id);
+    const inT = tracks.find((t) => t && t.id === track.id && t.type === track.type);
     if (!inT) continue;
+    if (typeof inT.name === 'string' && inT.name.trim()) track.name = inT.name.trim().slice(0, 24);
     track.vol = num(inT.vol, 0, 10, track.vol);
     track.mute = !!inT.mute;
     track.notes = (Array.isArray(inT.notes) ? inT.notes : [])
@@ -89,7 +109,7 @@ function sanitizeSound(s, base, num, int) {
   const out = copySound(base);
   if (!s || typeof s !== 'object') return out;
   out.cut = num(s.cut, 0, 1000, out.cut);
-  out.res = num(s.res, 0, 30, out.res);
+  out.res = num(s.res, 0, 25, out.res);
   for (const k of ['atk', 'dec', 'rel', 'fatk', 'fdec']) out[k] = num(s[k], 0, 1000, out[k]);
   for (const k of ['sus', 'famt', 'fsus']) out[k] = num(s[k], 0, 100, out[k]);
   const osc = Array.isArray(s.osc) ? s.osc : [];
@@ -98,7 +118,7 @@ function sanitizeSound(s, base, num, int) {
     return {
       oct: int(x.oct, -8, 2, o.oct),
       wave: WAVES.includes(x.wave) ? x.wave : o.wave,
-      cents: num(x.cents, -1200, 1200, o.cents),
+      cents: num(x.cents, -700, 700, o.cents),
       vol: num(x.vol, 0, 10, o.vol),
       on: typeof x.on === 'boolean' ? x.on : o.on,
     };

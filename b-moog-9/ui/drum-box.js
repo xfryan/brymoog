@@ -1,16 +1,17 @@
 // Pantalla del Ritmo: el drum box con Tempo, Meter, Loop, ritmos predefinidos y pasos.
 // La grilla tiene un bloque por instrumento y, dentro, un renglón por compás del Loop.
+// Debajo se suman instrumentos adicionales, hasta 12 filas.
 
 import { createKnob, createRotary, bindSlider } from './controls.js';
 import { confirmDialog, choose, flash } from './dialogs.js';
 import {
   getSong, onSongChange, setTempo, setMeter, setLoop, loadPreset, toggleStep, setDrumVolume,
-  setTrackVolume, copyFirstBar,
+  setTrackVolume, copyFirstBar, addDrum, removeDrum,
 } from '../state/actions.js';
-import { setView, onViewChange } from '../state/view.js';
+import { setView } from '../state/view.js';
 import {
-  METERS, LOOPS, PRESETS, DRUMS, TEMPO_MIN, TEMPO_MAX,
-  rhythmOf, meterOf, hasNotes, noteTracks, drumIndex, barIsEmpty,
+  METERS, LOOPS, PRESETS, DRUMS, EXTRA_DRUMS, MAX_DRUM_ROWS, TEMPO_MIN, TEMPO_MAX,
+  rhythmOf, meterOf, hasNotes, noteTracks, drumIndex, drumInfo, barIsEmpty,
 } from '../state/song.js';
 import { position, onPlayerChange } from '../seq/player.js';
 import * as recorder from '../seq/recorder.js';
@@ -40,18 +41,13 @@ export function setupDrumBox() {
   drumsVol = bindSlider($('drumsvol'), $('drumsvolo'), (v) => v.toFixed(1), (v) => setTrackVolume('rhythm', v));
 
   buildPresets();
+  buildAddButtons();
   update();
 
   $('back').addEventListener('click', () => setView({ pane: 'song' }));
   $('copybar').addEventListener('click', askCopy);
   onSongChange(update);
   onPlayerChange(showStep);
-  onViewChange((patch) => {
-    if (patch.pane === undefined) return;
-    $('paneSong').hidden = patch.pane !== 'song';
-    $('paneRhythm').hidden = patch.pane !== 'rhythm';
-    window.scrollTo(0, 0);
-  });
 }
 
 function blockedWhileRecording() {
@@ -135,8 +131,57 @@ function buildPresets() {
     const b = e.target.closest('button[data-p]');
     if (!b || b.disabled) return;
     const i = +b.dataset.p;
-    askMeter(PRESETS[i].meter, () => loadPreset(i));
+    askMeter(PRESETS[i].meter, () => askKit(i));
   });
+}
+
+/**
+ * Los ritmos predefinidos solo traen Kick, Snare y Hi-hat. Si hay instrumentos adicionales,
+ * pregunta si dejarlos como están o quitarlos, como el B-MOOG 7.
+ */
+async function askKit(index) {
+  if (rhythmOf(getSong()).rows.length <= DRUMS.length) { loadPreset(index); return; }
+  const answer = await choose({
+    title: `Ritmo ${PRESETS[index].name}`,
+    text: 'Este ritmo viene solo con Kick, Snare y Hi-hat, y tú tienes instrumentos adicionales.',
+    buttons: [
+      { label: 'Adaptar lo existente (mantengo los adicionales)', value: 'adapt', cls: 'on' },
+      { label: 'Comenzar desde cero (quito los adicionales)', value: 'fresh' },
+      { label: 'Cancelar', value: false },
+    ],
+  });
+  if (answer) loadPreset(index, answer === 'fresh');
+}
+
+// Instrumentos adicionales
+
+function buildAddButtons() {
+  const box = $('dadd');
+  box.innerHTML = EXTRA_DRUMS.map((d) => `<button type="button" data-k="${d.id}" title="${d.es}">+ ${d.name}</button>`).join('')
+    + '<span class="kv" id="dcount"></span>';
+  box.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-k]');
+    if (!b || blockedWhileRecording()) return;
+    if (addDrum(b.dataset.k)) {
+      const grid = $('dgrid');
+      grid.scrollTop = grid.scrollHeight;
+    }
+  });
+}
+
+async function askRemove(ri) {
+  if (blockedWhileRecording()) return;
+  const row = rhythmOf(getSong()).rows[ri];
+  if (row.steps.some(Boolean)) {
+    const ok = await confirmDialog({
+      title: `Quitar ${row.name}`,
+      text: 'Se quita la fila con sus golpes. Esto todavía no se puede deshacer.',
+      ok: 'Quitar',
+      danger: true,
+    });
+    if (!ok) return;
+  }
+  removeDrum(ri);
 }
 
 function stepsHtml(ri, name, bar, m) {
@@ -148,11 +193,14 @@ function stepsHtml(ri, name, bar, m) {
   return html;
 }
 
+/** Lo que obliga a volver a armar la grilla: compás, Loop y las filas. */
+const shapeOf = (r) => `${r.meter}/${r.loop}/${r.rows.map((row) => row.name).join(',')}`;
+
 function buildGrid() {
   const song = getSong();
   const r = rhythmOf(song);
   const m = meterOf(song);
-  gridShape = `${r.meter}/${r.loop}`;
+  gridShape = shapeOf(r);
   const cols = `grid-template-columns: repeat(${m.n}, minmax(0, 1fr))`;
 
   let nums = '';
@@ -160,15 +208,17 @@ function buildGrid() {
   let html = `<div class="dhead"><div class="dbar"><span></span><div class="snum" style="${cols}">${nums}</div></div></div>`;
 
   r.rows.forEach((row, ri) => {
-    const d = DRUMS.find((x) => x.id === row.id);
+    const d = drumInfo(row.id);
     let bars = '';
     for (let b = 0; b < r.loop; b++) {
-      bars += `<div class="dbar"><span class="blab" data-bar="${b}">Compás ${b + 1}</span><div class="steps" style="${cols}">${stepsHtml(ri, d.name, b, m)}</div></div>`;
+      bars += `<div class="dbar"><span class="blab" data-bar="${b}">Compás ${b + 1}</span><div class="steps" style="${cols}">${stepsHtml(ri, row.name, b, m)}</div></div>`;
     }
+    const remove = ri >= DRUMS.length ? `<button type="button" class="ddel" data-del="${ri}">Quitar</button>` : '';
     html += `<div class="dgroup">
       <div class="dinfo">
-        <div class="dname">${d.name}<small>${d.es}</small></div>
-        <span class="mrange"><input type="range" min="0" max="10" step="0.1" data-row="${ri}" aria-label="Volumen ${d.name}"><span class="kv"></span></span>
+        <div class="dname">${row.name}<small>${d.es}</small></div>
+        <span class="mrange"><input type="range" min="0" max="10" step="0.1" data-row="${ri}" aria-label="Volumen ${row.name}"><span class="kv"></span></span>
+        ${remove}
       </div>
       <div class="dbars">${bars}</div>
     </div>`;
@@ -184,6 +234,8 @@ function buildGrid() {
   grid.onclick = (e) => {
     const st = e.target.closest('.st');
     if (st) toggleStep(+st.dataset.row, +st.dataset.i);
+    const del = e.target.closest('[data-del]');
+    if (del) askRemove(+del.dataset.del);
   };
   lastStep = '';
 }
@@ -191,7 +243,7 @@ function buildGrid() {
 function update() {
   const song = getSong();
   const r = rhythmOf(song);
-  if (`${r.meter}/${r.loop}` !== gridShape) buildGrid();
+  if (shapeOf(r) !== gridShape) buildGrid();
   tempo.set(r.tempo);
   meterSel.set(r.meter);
   loopSel.set(LOOPS.indexOf(r.loop));
@@ -203,6 +255,9 @@ function update() {
     b.setAttribute('aria-pressed', on);
   });
   document.querySelectorAll('#presets button').forEach((b) => b.classList.toggle('on', +b.dataset.p === r.preset));
+  const full = r.rows.length >= MAX_DRUM_ROWS;
+  document.querySelectorAll('#dadd button').forEach((b) => { b.disabled = full; });
+  $('dcount').textContent = `${r.rows.length} de ${MAX_DRUM_ROWS}`;
 
   // Aviso y botón para copiar el compás 1, solo con más de un compás.
   $('dcopy').hidden = r.loop < 2;

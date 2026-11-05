@@ -1,5 +1,5 @@
-// Sonidos de fábrica, los mismos del B-MOOG 7. En la 1.1 no se pueden cambiar;
-// el editor de sonido llega en la 1.2.
+// Sonidos de fábrica, los mismos del B-MOOG 7. Cada track arranca con una copia del de su tipo
+// y se cambia en la pantalla de Sonido (ui/sound-editor.js).
 //
 // Los valores de tiempo y de corte van de 0 a 1000 y se convierten a segundos
 // o hertz con una escala exponencial (ver audio/voice.js), igual que los sliders del 7.
@@ -8,7 +8,7 @@
  * @typedef {object} Oscillator
  * @property {number} oct    Octava respecto de la nota tocada (-8 a 2).
  * @property {'triangle'|'sawtooth'|'square'|'pulse'} wave
- * @property {number} cents  Desafinación en cents.
+ * @property {number} cents  Desafinación en cents, -700 a 700.
  * @property {number} vol    Volumen en el mixer, 0 a 10.
  * @property {boolean} on    Encendido en el mixer.
  */
@@ -16,7 +16,7 @@
 /**
  * @typedef {object} Sound
  * @property {number} cut   Cutoff (corte), 0 a 1000.
- * @property {number} res   Emphasis (resonancia), valor Q del filtro.
+ * @property {number} res   Emphasis (resonancia), valor Q del filtro, 0 a 25.
  * @property {number} atk   Attack (ataque), 0 a 1000.
  * @property {number} dec   Decay (caída), 0 a 1000.
  * @property {number} sus   Sustain (sostenido), 0 a 100.

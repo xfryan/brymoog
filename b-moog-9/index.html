@@ -18,7 +18,7 @@
       'io/song-file.js',
       'seq/clock.js', 'seq/player.js', 'seq/recorder.js',
       'state/actions.js', 'state/song.js', 'state/sounds.js', 'state/view.js',
-      'ui/controls.js', 'ui/dialogs.js', 'ui/drum-box.js', 'ui/topbar.js', 'ui/tracks.js',
+      'ui/controls.js', 'ui/dialogs.js', 'ui/drum-box.js', 'ui/sound-editor.js', 'ui/topbar.js', 'ui/tracks.js',
     ];
     const at = (path) => new URL(path, location.href).href;
     const map = { imports: {} };
@@ -42,12 +42,7 @@
   <div class="wrap">
     <div class="toprow">
       <div class="tl">
-        <h1>B-MOOG 9 <small>v1.1</small></h1>
-        <div class="ctl">
-          <button type="button" class="tgl" id="holdsw" role="switch" aria-checked="false" aria-label="Hold"><span class="knobdot"></span></button>
-          <span class="rlab" id="holdlab">Hold OFF</span>
-          <small>(sostener, barra espaciadora)</small>
-        </div>
+        <h1>B-MOOG 9 <small>v1.2</small></h1>
         <div class="ctl">
           <button type="button" class="tgl" id="midisw" role="switch" aria-checked="false" aria-label="MIDI"><span class="knobdot"></span></button>
           <span class="rlab" id="midilab">MIDI OFF</span>
@@ -97,7 +92,12 @@
         </label>
       </div>
       <div class="tracks" id="tracks"></div>
-      <p class="note">Toca una fila de Bajo o Melodía para seleccionarla: el teclado suena con su sonido. Rec graba una vuelta completa del loop después de un compás de cuenta previa (GET READY) y reemplaza lo que el track tenía. TRACKS VOL sube o baja todo lo grabado; lo que tocas en vivo no cambia.</p>
+      <div class="addl" id="addl">
+        <button type="button" data-add="bass">+ Bajo</button>
+        <button type="button" data-add="lead">+ Melodía</button>
+        <span class="kv" id="tcount"></span>
+      </div>
+      <p class="note">Toca una fila de Bajo o Melodía para seleccionarla: el teclado suena con su sonido, y Sonido abre sus controles. Toca el nombre de un track para cambiarlo. Rec graba una vuelta completa del loop después de un compás de cuenta previa (GET READY) y reemplaza lo que el track tenía. Puedes tener hasta 8 tracks contando el Ritmo; los que sumas se pueden borrar. TRACKS VOL sube o baja todo lo grabado; lo que tocas en vivo no cambia.</p>
     </section>
   </div>
 
@@ -124,7 +124,60 @@
         <button type="button" id="copybar">Copiar compás 1 a los demás</button>
       </div>
       <div class="dgrid" id="dgrid"></div>
-      <p class="note">Toca un paso para encenderlo o apagarlo. Cada instrumento tiene un renglón por compás del Loop. El compás (Meter) y el Loop valen para toda la canción: si cambias el compás cuando Bajo o Melodía tienen notas, primero te pregunta. Al bajar el Loop, los compases de más se ocultan pero no se borran.</p>
+      <div class="dadd" id="dadd"></div>
+      <p class="note">Toca un paso para encenderlo o apagarlo. Cada instrumento tiene un renglón por compás del Loop. Abajo puedes sumar instrumentos de percusión, hasta 12 filas, y repetirlos; Kick, Snare y Hi-hat siempre están. El compás (Meter) y el Loop valen para toda la canción: si cambias el compás cuando Bajo o Melodía tienen notas, primero te pregunta. Al bajar el Loop, los compases de más se ocultan pero no se borran.</p>
+    </section>
+  </div>
+
+  <div class="pane" id="paneSound" hidden>
+    <div class="panehead">
+      <button type="button" class="playbtn" data-play>&#9654; Play</button>
+      <button type="button" id="soundBack">&#8592; Volver a la canción</button>
+      <div class="panename">Sonido de <b id="soundName"></b></div>
+      <div class="ctl">
+        <button type="button" class="tgl" id="holdsw" role="switch" aria-checked="false" aria-label="Hold"><span class="knobdot"></span></button>
+        <span class="rlab" id="holdlab">Hold OFF</span>
+        <small>(sostener, barra espaciadora)</small>
+      </div>
+      <span class="sp"></span>
+      <button type="button" id="soundCopy">Copiar sonido de…</button>
+      <button type="button" id="soundReset">Sonido de fábrica</button>
+    </div>
+
+    <section class="sec">
+      <div class="ohead"><div class="obig">OSCILLATOR</div><h2>MIXER <small>(mezclador)</small></h2><h2>OSCILLATOR BANK <small>(banco de osciladores)</small></h2></div>
+      <div id="oscgrid"></div>
+      <p class="note">Range va en pies, como los tubos de órgano: cada paso es una octava y 8' es la afinación del teclado. LO es tan grave que se oye como pulsos. Frequency desafina respecto del oscilador 1: unos pocos cents lo engrosan, 700 cents es una quinta. El Minimoog tiene más formas de onda; aquí van cuatro.</p>
+    </section>
+
+    <section class="sec">
+      <h2>MODIFIERS <small>(modificadores)</small></h2>
+      <div class="mods">
+        <div class="mcol">
+          <h3>Filter <small>(filtro, low pass)</small></h3>
+          <canvas id="fc" class="mviz"></canvas>
+          <div class="faders" id="f-filter"></div>
+        </div>
+        <div class="mcol">
+          <h3>Filter Contour <small>(envolvente del filtro)</small></h3>
+          <canvas id="fe" class="mviz"></canvas>
+          <div class="faders f4" id="f-contour"></div>
+          <p class="relnote">Mueve el corte del filtro en cada nota: lo abre durante el ataque y lo deja en el nivel de Sustain. Amount es cuánto lo abre; en 0 no hace nada. Al soltar, el filtro vuelve a su lugar en el tiempo de Release.</p>
+        </div>
+        <div class="mcol">
+          <h3>Loudness Contour <small>(envolvente del volumen)</small></h3>
+          <canvas id="ec" class="mviz"></canvas>
+          <div class="faders f4" id="f-loudness"></div>
+          <p class="relnote">Release no existe como perilla en el Minimoog (allí lo resuelve el interruptor Decay). Aquí sirve para las dos envolventes.</p>
+        </div>
+      </div>
+      <p class="note">Con Hold encendido, deja una nota sonando y mueve los controles: los osciladores, el mixer y el filtro cambian en la nota que suena; las envolventes se oyen desde la nota siguiente. Sliders verticales: arrastra el control o haz clic en cualquier punto de la guía. Selectores giratorios: arrastra hacia arriba o abajo, o usa la rueda del mouse o las flechas. Doble clic vuelve al valor de fábrica.</p>
+    </section>
+
+    <section class="sec">
+      <h2>SCOPE <small>(visor: la onda y su envolvente en el tiempo)</small></h2>
+      <canvas id="scope" class="scope"></canvas>
+      <p class="note">Naranja: la envolvente, medida en tiempo real del sonido del sinte (sin la batería). Verde: la forma del oscilador 1, ralentizada para que se pueda ver. Lo nuevo entra por la derecha.</p>
     </section>
   </div>
 
@@ -139,9 +192,9 @@
       <tr><td>Segunda octava, blancas</td><td><kbd>V</kbd><kbd>B</kbd><kbd>N</kbd><kbd>M</kbd><kbd>,</kbd><kbd>.</kbd><kbd>-</kbd></td></tr>
       <tr><td>Segunda octava, negras</td><td><kbd>G</kbd><kbd>H</kbd><kbd>K</kbd><kbd>L</kbd><kbd>Ñ</kbd></td></tr>
       <tr><td>Último Do</td><td><kbd>Ç</kbd></td></tr>
-      <tr><td>Hold (sostener)</td><td><kbd>Barra espaciadora</kbd></td></tr>
+      <tr><td>Hold (sostener), en la pantalla de Sonido</td><td><kbd>Barra espaciadora</kbd></td></tr>
     </table>
-    <p>Con Hold encendido, la tecla que tocas queda sonando hasta que la vuelves a tocar: sirve para afinar un sonido. Se pueden tocar acordes de hasta 8 notas.</p>
+    <p>Hold está en la pantalla de Sonido de cada track. Con Hold encendido, la tecla que tocas queda sonando hasta que la vuelves a tocar: sirve para afinar un sonido. Al volver a la canción se apaga solo. Se pueden tocar acordes de hasta 8 notas.</p>
     <p><b>Teclado MIDI:</b> conecta el teclado por USB, abre esta página en Chrome y enciende MIDI. Con MIDI encendido, el teclado de la pantalla muestra las 61 teclas, tocar más fuerte suena más fuerte y el pedal sostiene. Si el teclado no responde, <a href="../pruebas/midi.html" target="_blank" rel="noopener">prueba la conexión</a>.</p>
     <div class="mbtns"><button type="button" id="helpx">Cerrar</button></div>
   </div>

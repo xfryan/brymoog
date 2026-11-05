@@ -6,7 +6,7 @@
 
 import { audio, ensureAudio } from '../audio/engine.js';
 import { startVoice } from '../audio/voice.js';
-import { getSong } from '../state/actions.js';
+import { getSong, onSongChange } from '../state/actions.js';
 import { getView } from '../state/view.js';
 import { trackById } from '../state/song.js';
 import * as recorder from '../seq/recorder.js';
@@ -28,6 +28,13 @@ export function onNotesChange(fn) {
 const emit = () => listeners.forEach((fn) => fn());
 
 export const isSounding = (n) => voices.has(n);
+
+// Al cambiar el sonido del track elegido, las notas que suenan (con Hold, por ejemplo) se ajustan.
+onSongChange((action) => {
+  if (action !== 'setSound' || !voices.size) return;
+  const track = trackById(getSong(), getView().selectedTrackId);
+  if (track && track.sound) voices.forEach((v) => v.refresh(track.sound));
+});
 
 /**
  * Velocidad MIDI (1 a 127) a multiplicador de volumen.

@@ -17,6 +17,11 @@
   --grid: rgba(255, 255, 255, 0.09);
   --grid2: rgba(255, 255, 255, 0.22);
   --note: #6fe0b0;
+  /* Trazos de las pantallas de Sonido: onda, envolvente medida, curvas y textos. */
+  --trb: #6fe0b0;
+  --trf: #ffab7a;
+  --tre: #6fe0b0;
+  --trl: #9aa39e;
   color-scheme: dark;
 }
 
@@ -236,7 +241,7 @@ main { display: block; padding-block: 20px 40px; }
 .tracks { display: flex; flex-direction: column; gap: 10px; }
 .lrow {
   display: grid;
-  grid-template-columns: 44px 170px 96px repeat(3, 84px) 170px minmax(0, 1fr);
+  grid-template-columns: 44px 170px 96px repeat(5, 84px) 170px minmax(0, 1fr);
   align-items: center;
   gap: 14px;
   padding: 12px 14px;
@@ -269,10 +274,31 @@ main { display: block; padding-block: 20px 40px; }
 .lamp.go.lit { background: var(--rec); color: #fff; box-shadow: 0 0 12px 2px rgba(229, 50, 45, 0.85); }
 .roll { display: block; width: 100%; height: 58px; border-radius: 6px; background: var(--screen); }
 @media (max-width: 1100px) {
-  .lrow { grid-template-columns: 44px minmax(0, 1fr) repeat(3, auto); }
+  .lrow { grid-template-columns: 44px minmax(0, 1fr) repeat(5, auto); }
   .lrow .lamps, .lrow .mrange, .lrow .roll { grid-column: 1 / -1; }
   .lrow .lamps { flex-direction: row; }
 }
+
+/* Sumar tracks */
+
+.addl { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-top: 12px; }
+.addl button { min-width: 140px; }
+.addl .kv { color: var(--mut); margin-left: 6px; }
+.lname input {
+  width: 100%;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 3px 6px;
+  margin-left: -7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--tx);
+}
+.lname input:hover { border-color: var(--bd); }
+.lname input:focus { border-color: var(--on); background: var(--bg); outline: none; }
+.lrow .delb { color: #ffb3b0; }
 
 /* Pantalla del Ritmo */
 
@@ -355,6 +381,90 @@ main { display: block; padding-block: 20px 40px; }
   .dinfo { flex-direction: row; align-items: center; justify-content: space-between; padding-right: 4px; }
   .dinfo .mrange { width: 160px; }
 }
+
+/* Instrumentos adicionales */
+
+.dadd { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)) auto; align-items: center; gap: 8px; margin-top: 14px; }
+.dadd button { padding: 9px 8px; font-size: 14px; white-space: nowrap; }
+.dadd .kv { color: var(--mut); padding-left: 6px; }
+.dinfo .ddel { align-self: flex-start; padding: 4px 10px; font-size: 12px; color: var(--mut); }
+@media (max-width: 1000px) { .dadd { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* Pantalla de Sonido */
+
+.panehead .sp { flex: 1; }
+.panehead .panename b { color: var(--tx); }
+.panename { color: var(--mut); }
+.n {
+  display: inline-block;
+  min-width: 22px;
+  margin-right: 6px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--onbg);
+  color: var(--on);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+  vertical-align: 1px;
+  font-variant-numeric: tabular-nums;
+}
+h3 { font-size: 17px; font-weight: 600; margin: 0; }
+h3 small { font-size: 14px; font-weight: 400; }
+
+.ohead, .orow { display: grid; grid-template-columns: 190px 320px minmax(0, 1fr); }
+.ohead { align-items: end; padding-bottom: 10px; }
+.ohead h2 { margin: 0; padding-left: 22px; }
+.obig { font-size: 24px; font-weight: 700; letter-spacing: 0.08em; line-height: 1; }
+.orow { min-height: 194px; border-top: 3px solid var(--tx); align-items: stretch; }
+.ncell { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+.ncell .rlab { min-width: 0; }
+.onum { font-size: 72px; font-weight: 700; line-height: 1; color: var(--bd); font-variant-numeric: tabular-nums; }
+.onum.on { color: var(--on); text-shadow: 0 0 14px rgba(93, 202, 165, 0.45); }
+.mcell { display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 8px 22px; border-left: 1px solid var(--bd); border-right: 1px solid var(--bd); }
+.mcell .kl { font-size: 14px; }
+.bcell { display: grid; grid-template-columns: auto minmax(0, 1fr) 190px; gap: 22px; align-items: center; padding: 14px 0 14px 22px; }
+.wcol { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.wrow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.wrow button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 84px;
+  padding: 9px 8px 7px;
+  border-bottom-width: 4px;
+}
+.wrow button.on { border-bottom-width: 2px; transform: translateY(2px); }
+.wi { width: 52px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
+.blank { color: var(--mut); font-size: 13px; line-height: 1.3; text-align: center; }
+@media (max-width: 1100px) {
+  .ohead { display: none; }
+  .orow { grid-template-columns: 140px minmax(0, 1fr); }
+  .bcell { grid-column: 1 / -1; grid-template-columns: auto minmax(0, 1fr); padding-left: 0; }
+  .ofreq { grid-column: 1 / -1; }
+  .mcell { border-right: 0; }
+}
+
+.mods { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.mcol { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.mviz, .scope { display: block; width: 100%; border-radius: 8px; background: var(--screen); }
+.mviz { height: 150px; }
+.scope { height: 200px; }
+.faders { display: flex; justify-content: center; gap: 36px; }
+.faders.f4 { gap: 14px; }
+.faders .kn { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.faders .kl { font-size: 14px; align-self: center; }
+.faders .kv { text-align: center; color: var(--mut); }
+.fader { display: flex; justify-content: center; width: 60px; height: 170px; padding: 12px 0; cursor: ns-resize; touch-action: none; border-radius: 8px; }
+.ftrack { position: relative; width: 8px; height: 100%; border-radius: 4px; background: var(--bd); }
+.ffill { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 4px; background: var(--on); }
+.fthumb { position: absolute; left: 50%; width: 44px; height: 22px; border: 2px solid var(--on); border-radius: 4px; background: var(--card); transform: translate(-50%, 50%); }
+.fthumb::after { content: ''; position: absolute; left: 8px; right: 8px; top: 50%; height: 2px; background: var(--on); transform: translateY(-50%); }
+.relnote { font-size: 13px; color: var(--mut); line-height: 1.45; margin: 0; max-width: 60ch; }
+@media (max-width: 1100px) { .mods { grid-template-columns: minmax(0, 1fr); } }
 
 /* Ventanas modales y avisos */
 

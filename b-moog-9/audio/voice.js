@@ -5,11 +5,22 @@ import { audio } from './engine.js';
 
 const CUT_MIN = 60;
 const CUT_MAX = 12000;
+
+/** Segundos mínimos y máximos de cada tiempo de las envolventes (valores 0 a 1000). */
+const TIME_RANGES = {
+  atk: [0.002, 3], dec: [0.01, 3], rel: [0.01, 4], fatk: [0.002, 3], fdec: [0.01, 3],
+};
 /** Pico del Filter Contour, en cents: amount × 7200. */
 const CONTOUR_CENTS = 7200;
 
 /** Escala exponencial de un valor 0 a 1000 entre min y max. */
 const expScale = (v, min, max) => min * Math.pow(max / min, v / 1000);
+
+/** Hertz del Cutoff para un valor 0 a 1000. */
+export const cutoffHz = (v) => expScale(v, CUT_MIN, CUT_MAX);
+
+/** Segundos de un tiempo de envolvente (atk, dec, rel, fatk o fdec) para un valor 0 a 1000. */
+export const envelopeSeconds = (key, v) => expScale(v, ...TIME_RANGES[key]);
 
 /** Hertz del semitono n; 0 es C3. */
 export const noteHz = (n) => 130.81 * Math.pow(2, n / 12);
@@ -17,16 +28,23 @@ export const noteHz = (n) => 130.81 * Math.pow(2, n / 12);
 /** Convierte un sonido (valores de 0 a 1000) a segundos y hertz. */
 export function soundTimes(s) {
   return {
-    cutoff: expScale(s.cut, CUT_MIN, CUT_MAX),
-    attack: expScale(s.atk, 0.002, 3),
-    decay: expScale(s.dec, 0.01, 3),
+    cutoff: cutoffHz(s.cut),
+    attack: envelopeSeconds('atk', s.atk),
+    decay: envelopeSeconds('dec', s.dec),
     sustain: s.sus / 100,
-    release: expScale(s.rel, 0.01, 4),
+    release: envelopeSeconds('rel', s.rel),
     contour: s.famt / 100,
-    contourAttack: expScale(s.fatk, 0.002, 3),
-    contourDecay: expScale(s.fdec, 0.01, 3),
+    contourAttack: envelopeSeconds('fatk', s.fatk),
+    contourDecay: envelopeSeconds('fdec', s.fdec),
     contourSustain: s.fsus / 100,
   };
+}
+
+const mixGain = (o) => (o.on ? (o.vol / 10) * 0.22 : 0);
+
+function setWave(osc, wave) {
+  if (wave === 'pulse') osc.setPeriodicWave(audio.pulse);
+  else osc.type = wave;
 }
 
 // Corta lo programado en un parámetro y lo deja en su valor actual.
@@ -70,16 +88,17 @@ export function startVoice(sound, note, time, level, dest) {
   out.gain.value = level / 10;
   filter.connect(env).connect(out).connect(dest);
 
+  const mixes = [];
   const oscillators = sound.osc.map((o) => {
     const osc = ctx.createOscillator();
-    if (o.wave === 'pulse') osc.setPeriodicWave(audio.pulse);
-    else osc.type = o.wave;
+    setWave(osc, o.wave);
     osc.frequency.value = noteHz(note) * Math.pow(2, o.oct);
     osc.detune.value = o.cents;
     const mix = ctx.createGain();
-    mix.gain.value = o.on ? (o.vol / 10) * 0.22 : 0;
+    mix.gain.value = mixGain(o);
     osc.connect(mix).connect(filter);
     osc.start(time);
+    mixes.push(mix);
     return osc;
   });
 
@@ -102,6 +121,24 @@ export function startVoice(sound, note, time, level, dest) {
       holdAt(env.gain, t);
       env.gain.linearRampToValueAtTime(0, t + 0.01);
       oscillators.forEach((o) => { try { o.stop(t + 0.03); } catch { /* ya detenido */ } });
+    },
+    /**
+     * Aplica a la nota que suena los cambios de osciladores, mixer y filtro, para afinar
+     * un sonido con una nota sostenida (Hold). Las envolventes cambian desde la nota siguiente.
+     */
+    refresh(s) {
+      if (done) return;
+      const t = ctx.currentTime;
+      s.osc.forEach((o, i) => {
+        const osc = oscillators[i];
+        setWave(osc, o.wave);
+        osc.frequency.setTargetAtTime(noteHz(note) * Math.pow(2, o.oct), t, 0.004);
+        osc.detune.setTargetAtTime(o.cents, t, 0.01);
+        mixes[i].gain.setTargetAtTime(mixGain(o), t, 0.01);
+      });
+      const q = soundTimes(s);
+      filter.frequency.setTargetAtTime(q.cutoff, t, 0.01);
+      filter.Q.setTargetAtTime(s.res, t, 0.01);
     },
     /** Se llama cuando la voz terminó de sonar. */
     set onended(fn) { oscillators[0].onended = fn; },
